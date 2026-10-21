@@ -8,6 +8,7 @@
   color-scheme:dark;--team:#d32f2f;--tint:color-mix(in srgb,var(--team) 22%,var(--line));
 }
 *{box-sizing:border-box}
+html,body{margin:0}
 body{background:var(--ink);color:var(--text);font-family:var(--f-b);font-size:10px;line-height:1.7;
   padding-block:0 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
   background-image:radial-gradient(circle at 1px 1px,#16204a 1px,transparent 0);background-size:6px 6px;background-attachment:fixed}
