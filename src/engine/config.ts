@@ -62,3 +62,18 @@ export const SIM = {
   goalScale: 22,
   maxGap: 30,
 };
+
+export const CUP_NAME = 'Challenge Cup';
+export const CUP_ROUND_NAMES: readonly string[] = [
+  'Preliminary round',
+  'Round 1',
+  'Round 2',
+  'Round of 16',
+  'Quarter-finals',
+  'Semi-finals',
+  'Final',
+];
+/** Cup round i is played midweek once this many league matchdays have been played. */
+export const CUP_ROUND_AFTER_MATCHDAY: readonly number[] = [3, 7, 11, 16, 22, 28, 35];
+/** Clubs playing in the preliminary round. The other 48 get a bye into Round 1. */
+export const CUP_PRELIM_CLUBS = 32;

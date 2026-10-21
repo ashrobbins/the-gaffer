@@ -66,3 +66,13 @@ Retro pixel-art football management game. Mobile first. The visual reference is 
 - Bottom sheets for player details, contract offers, signing negotiations and the match plan. They scroll internally and always open at the top.
 - Drag and drop (pointer events) for lineups and substitutes.
 - Press Start 2P everywhere. Dark pixel look. The primary colour of the user's club tints the frame subtly.
+
+## Engine notes (decisions made while building)
+- Fixtures: the second half of the season replays the first half with venues swapped, in reverse order, so no club has more than three home or three away matches in a row.
+- League simulation: team strength is the best goalkeeper plus the ten best fit outfield players, adjusted for the last five results and league position. Goals come from a Poisson curve.
+- Cup rounds are played after league matchdays 3, 7, 11, 16, 22, 28 and 35 (the final). A cup tie that finishes level goes to a shoot-out, which is close to a coin flip.
+- Cup rounds the user has no tie in, or after they are out, are simulated automatically when due.
+- Play-off final: 3rd plays 4th at 3rd place's ground. A level score goes to a shoot-out.
+- At season end, three clubs move between each pair of neighbouring divisions: the bottom three go down, and 1st, 2nd and the play-off winner go up. Divisions stay at 20.
+- The user's club gains a sponsor slot on promotion (maximum four) and keeps its slots if relegated.
+- Honours (league titles, cup wins) are recorded in `world.honours` for the trophy cabinet.

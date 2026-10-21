@@ -88,6 +88,8 @@ export interface World {
   /** Club ids in each division, index 0 being the top division. */
   divisions: string[][];
   userClubId: string;
+  /** League titles and cups the user's club has won. */
+  honours: Honour[];
 }
 
 export interface NewClubOptions {
@@ -131,4 +133,46 @@ export interface StandingRow {
   goalsAgainst: number;
   goalDifference: number;
   points: number;
+}
+
+export interface KnockoutResult {
+  homeId: string;
+  awayId: string;
+  homeGoals: number;
+  awayGoals: number;
+  /** Shoot-out score when the match was level after normal play. */
+  penalties: [home: number, away: number] | null;
+  winnerId: string;
+}
+
+export interface CupTie extends KnockoutResult {
+  round: number;
+  /** False until the tie has been played; the result fields are placeholders until then. */
+  played: boolean;
+}
+
+export interface CupRound {
+  name: string;
+  /** Empty until the round has been drawn. */
+  ties: CupTie[];
+  played: boolean;
+}
+
+export interface Cup {
+  year: number;
+  rounds: CupRound[];
+  /** Clubs that skipped the preliminary round. */
+  byes: string[];
+  winnerId: string | null;
+}
+
+export interface PlayoffFinal extends KnockoutResult {
+  division: number;
+}
+
+export interface Honour {
+  kind: 'league' | 'cup';
+  /** For example "Division Four champions" or "Challenge Cup winners". */
+  name: string;
+  year: number;
 }

@@ -216,5 +216,5 @@ export function generateWorld(seed: number, userClub: NewClubOptions = DEFAULT_N
   const user = Object.values(clubs).find((c) => c.isUser);
   if (!user) throw new Error('User club was not created');
 
-  return { seed, clubs, players, divisions, userClubId: user.id };
+  return { seed, clubs, players, divisions, userClubId: user.id, honours: [] };
 }
