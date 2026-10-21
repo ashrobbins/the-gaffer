@@ -43,3 +43,22 @@ export const SQUAD_TEMPLATE: readonly SquadSlot[] = [
   { position: 'ST', adjust: 3 },
   { position: 'ST', adjust: 0 },
 ];
+
+/** Matches each club plays in a league season: home and away against the other 19. */
+export const MATCHES_PER_SEASON = (CLUBS_PER_DIVISION - 1) * 2;
+/** Matchday index (0-based) of the last round. */
+export const ROUNDS_PER_SEASON = MATCHES_PER_SEASON;
+
+/** Tuning for the simulation of matches the user does not play. */
+export const SIM = {
+  homeAdvantage: 3,
+  /** Rating points per unit of recent form. Form runs from -3.5 (five defeats) to +3.5 (five wins). */
+  formWeight: 1.4,
+  /** Rating points for each league place above mid-table. */
+  positionWeight: 0.18,
+  homeGoals: 1.35,
+  awayGoals: 1.05,
+  /** How quickly a rating gap turns into a goal gap: larger means less decisive. */
+  goalScale: 22,
+  maxGap: 30,
+};

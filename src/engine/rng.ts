@@ -12,6 +12,8 @@ export interface Rng {
   shuffle<T>(items: readonly T[]): T[];
   /** Normally distributed number. */
   normal(mean: number, sd: number): number;
+  /** The current internal state. `createRng(state)` carries on from exactly here, which saves rely on. */
+  state(): number;
 }
 
 /** mulberry32: small, fast and good enough for a game. */
@@ -30,6 +32,7 @@ export function createRng(seed: number): Rng {
   return {
     next,
     int,
+    state: () => a,
     chance: (p) => next() < p,
     pick: <T>(items: readonly T[]): T => {
       if (items.length === 0) throw new Error('pick() needs at least one item');

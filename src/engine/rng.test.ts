@@ -45,3 +45,12 @@ describe('createRng', () => {
     expect(() => createRng(1).pick([])).toThrow();
   });
 });
+
+describe('rng state', () => {
+  it('carries on from a saved state exactly', () => {
+    const a = createRng(123);
+    for (let i = 0; i < 17; i++) a.next();
+    const b = createRng(a.state());
+    expect(Array.from({ length: 8 }, () => a.next())).toEqual(Array.from({ length: 8 }, () => b.next()));
+  });
+});

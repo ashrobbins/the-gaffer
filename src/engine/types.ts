@@ -95,3 +95,40 @@ export interface NewClubOptions {
   stadiumName: string;
   kit: Kit;
 }
+
+export interface Fixture {
+  division: number;
+  /** Matchday index, 0 to 37. */
+  round: number;
+  homeId: string;
+  awayId: string;
+}
+
+export interface MatchResult {
+  division: number;
+  round: number;
+  homeId: string;
+  awayId: string;
+  homeGoals: number;
+  awayGoals: number;
+}
+
+export interface Season {
+  year: number;
+  /** How many matchdays have been played, which is also the index of the next one. */
+  round: number;
+  fixtures: Fixture[];
+  results: MatchResult[];
+}
+
+export interface StandingRow {
+  clubId: string;
+  played: number;
+  won: number;
+  drawn: number;
+  lost: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  goalDifference: number;
+  points: number;
+}
