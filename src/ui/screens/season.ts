@@ -84,7 +84,7 @@ function tieRow(game: Game, t: CupTie): string {
 /** One line of the user's cup run for a round: what happened, or what is to come. */
 function runLine(game: Game, i: number, round: CupRound, status: ReturnType<typeof userCupStatus>): string {
   const tie = userTie(game.world, round);
-  const date = shortDate(cupDate(i));
+  const date = shortDate(cupDate(i, game.season.year));
   const name = `${esc(round.name)} <span class="dim">${date}</span>`;
   if (tie?.played) {
     const home = club(game, tie.homeId).isUser;
@@ -122,16 +122,16 @@ function cupView(game: Game, state: SeasonScreenState): string {
   } else if (myNext) {
     const home = club(game, myNext.homeId).isUser;
     const opp = club(game, home ? myNext.awayId : myNext.homeId);
-    headline = `<div class="stat"><span>Next tie</span><span class="gold">${esc((nextRound as CupRound).name)} · ${shortDate(cupDate(nextIdx))}</span></div>
+    headline = `<div class="stat"><span>Next tie</span><span class="gold">${esc((nextRound as CupRound).name)} · ${shortDate(cupDate(nextIdx, game.season.year))}</span></div>
       <div class="stat"><span>${home ? 'Home v' : 'Away at'}</span><span>${esc(opp.name)} ${divisionTag(opp)}</span></div>
       <div class="note" style="margin-top:8px">Cup ties are played midweek, between league matches, until you are knocked out.</div>`;
   } else {
-    headline = `<div class="stat"><span>Next round</span><span class="gold">${nextRound ? `${esc(nextRound.name)} · ${shortDate(cupDate(nextIdx))}` : '-'}</span></div>
+    headline = `<div class="stat"><span>Next round</span><span class="gold">${nextRound ? `${esc(nextRound.name)} · ${shortDate(cupDate(nextIdx, game.season.year))}` : '-'}</span></div>
       <div class="note" style="margin-top:8px">You have no tie in the next round.</div>`;
   }
 
   const ties = sel.ties.length
-    ? `<div class="note" style="margin-bottom:8px">${esc(sel.name)} · ${shortDate(cupDate(viewing))}${sel.played ? '' : ' · draw made, not yet played'}</div>${sel.ties.map((t) => tieRow(game, t)).join('')}`
+    ? `<div class="note" style="margin-bottom:8px">${esc(sel.name)} · ${shortDate(cupDate(viewing, game.season.year))}${sel.played ? '' : ' · draw made, not yet played'}</div>${sel.ties.map((t) => tieRow(game, t)).join('')}`
     : viewing === 0 && cup.byes.length
       ? '<div class="note">Everyone else had a bye into Round 1.</div>'
       : '<div class="note">The draw is made after the previous round has been played.</div>';

@@ -7,6 +7,7 @@ import { cannotSell } from '../../engine/selling';
 import type { Club, Player } from '../../engine/types';
 import type { Game } from '../../game';
 import { esc, gbp, num, shortDate } from '../format';
+import { summerControls } from './hq';
 import { positionGroup, type PositionGroup } from '../icons';
 
 export type TransferTab = 'buy' | 'sell';
@@ -38,6 +39,7 @@ function windowBox(game: Game, club: Club): string {
       <div><span class="mini">Cash</span><b>${gbp(club.cash)}</b></div>
       <div><span class="mini">Squad</span><b>${club.playerIds.length} / ${TRANSFER.maxSquad}</b></div></div>
     <div class="tprog ${w.open ? '' : 'closed'}" aria-hidden="true">${Array.from({ length: 30 }, (_, i) => `<i class="${i < lit ? 'f' : ''}"></i>`).join('')}</div>
+    ${game.phase === 'summer' ? `<div style="margin-top:14px">${summerControls(game)}</div>` : ''}
     ${w.open ? '' : `<div class="cnote">Transfer window closed. You can browse the market, but bids are switched off until it opens on ${shortDate(w.opens)}, in ${w.daysToOpen} days.</div>`}</div>`;
 }
 

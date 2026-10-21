@@ -4,7 +4,10 @@ import { nextCupRound, userTie } from '../../engine/cup';
 import { sponsorIncome, weeklyProjection } from '../../engine/finance';
 import { tableFor } from '../../engine/season';
 import type { Club, Fixture } from '../../engine/types';
-import { START_YEAR, type Game } from '../../game';
+import { type Game } from '../../game';
+import { isLastSummerWeek, seasonReadyToClose } from '../../seasonEnd';
+import { windowAt } from '../../engine/calendar';
+import { reviewHtml } from './review';
 import { nextMatch } from '../../play';
 import { esc, gbp, num, ordinal, shortDate } from '../format';
 import { shirt } from '../sprites';
@@ -23,7 +26,7 @@ export function upcomingFixtures(game: Game, limit = 3): Fixture[] {
 function fixtureLine(game: Game, f: Fixture): { date: string; opponent: Club; home: boolean } {
   const me = game.world.userClubId;
   const home = f.homeId === me;
-  return { date: matchdayDate(START_YEAR, f.round), opponent: game.world.clubs[home ? f.awayId : f.homeId] as Club, home };
+  return { date: matchdayDate(game.season.year, f.round), opponent: game.world.clubs[home ? f.awayId : f.homeId] as Club, home };
 }
 
 /** The cup tie the user is due to play next, with its date (the Wednesday after the league matchday), or null. */
@@ -35,7 +38,7 @@ function nextCupLine(game: Game): { date: string; round: string; opponent: Club 
   if (!tie) return null;
   const home = tie.homeId === game.world.userClubId;
   const after = CUP_ROUND_AFTER_MATCHDAY[i] as number;
-  const saturday = matchdayDate(START_YEAR, after - 1);
+  const saturday = matchdayDate(game.season.year, after - 1);
   const date = new Date(Date.UTC(+saturday.slice(0, 4), +saturday.slice(5, 7) - 1, +saturday.slice(8, 10) + 4)).toISOString().slice(0, 10);
   return { date, round: round.name, opponent: game.world.clubs[home ? tie.awayId : tie.homeId] ?? null, home };
 }
@@ -50,6 +53,27 @@ function comingUp(game: Game, later: Fixture[], cup: ReturnType<typeof nextCupLi
     rows.push({ date: cup.date, html: `<div class="cu"><span class="dim">${shortDate(cup.date)}</span><span class="pill y">Cup</span><span>${esc(cup.round)} ${cup.home ? 'v' : 'at'} ${esc(cup.opponent?.name ?? '')}</span></div>` });
   }
   return rows.sort((a, b) => a.date.localeCompare(b.date)).map((r) => r.html).join('');
+}
+
+/** The summer controls: the date, the transfer window, and the button that moves time on a week. */
+export function summerControls(game: Game): string {
+  const w = windowAt(game.date);
+  const last = isLastSummerWeek(game);
+  return `<div class="stat"><span>Date</span><span class="gold">${shortDate(game.date)}</span></div>
+    <div class="stat"><span>Transfer window</span><span class="${w.open ? 'grn' : 'red'}">${w.open ? `Open, ${Math.max(0, w.daysToClose)} days left` : 'Closed'}</span></div>
+    <div class="row2" style="margin-top:14px"><button class="btn" data-act="${last ? 'start-season' : 'advance-week'}" type="button">${last ? 'Start the season' : 'Advance a week'}</button></div>
+    <div class="note center" style="margin-top:8px">Between seasons, time moves one week at a time. Sign players, then advance when you are ready.${last ? ' The new season kicks off on ' + shortDate(matchdayDate(game.season.year, 0)) + '.' : ''}</div>`;
+}
+
+function seasonOverBox(game: Game): string {
+  if (game.phase === 'summer') {
+    return `<div class="box"><h2>Close season <small>${game.season.year}</small></h2>${summerControls(game)}</div>`;
+  }
+  if (seasonReadyToClose(game)) {
+    return `<div class="box"><h2>Season over</h2><p class="note">Every match has been played. See how the season ended, who goes up and down, and move on to the summer.</p>
+      <div class="row2" style="margin-top:14px"><button class="btn" data-act="close-season" type="button">Finish the season</button></div></div>`;
+  }
+  return `<div class="box"><h2>Season over</h2><p class="note">There are no more league matches this season.</p></div>`;
 }
 
 export function renderHq(game: Game): string {
@@ -78,11 +102,12 @@ export function renderHq(game: Game): string {
         ${comingUp(game, later, cup)}
       </div>`;
   } else {
-    fixtureBox = `<div class="box"><h2>Season over</h2><p class="note">There are no more league matches this season.</p></div>`;
+    fixtureBox = seasonOverBox(game);
   }
 
+  const review = game.review ? reviewHtml(game, game.review) : '';
   return `<div class="grid g21">
-    <div class="grid" style="align-content:start;gap:18px">${fixtureBox}</div>
+    <div class="grid" style="align-content:start;gap:18px">${fixtureBox}${review}</div>
     <div class="grid" style="align-content:start;gap:18px">
       <div class="box"><h2>Standing <small>${DIVISION_NAMES[club.division]}</small></h2>
         <div class="big">${row && row.played > 0 ? `${ordinal(position)}<span style="font-size:9px" class="dim"> of 20</span>` : 'Day one'}</div>

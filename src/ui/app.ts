@@ -18,6 +18,7 @@ import { attachLineupDnd, type LineupRef } from './dnd';
 import { bidSheet, contractDynamic, contractSheet, defaultOffer, playerSheet, saleCounterSheet, type SheetState } from './sheets';
 import { acceptCounter, completeSigning, makeOffer, startNegotiation, type OfferLevel } from '../engine/negotiation';
 import { acceptBid, counterBid, rejectBid } from '../engine/selling';
+import { advanceSummer, closeSeason } from '../seasonEnd';
 import { initialTransferState, renderTransfers, type TransferFilter, type TransferScreenState, type TransferTab } from './screens/transfers';
 import { initialSeasonState, renderSeason, type SeasonScreenState, type SeasonView } from './screens/season';
 import { renderTeam, type TeamScreenState, type TeamTab } from './screens/team';
@@ -287,6 +288,7 @@ export class App {
       this.render();
       return true;
     }
+    if (await this.onSeasonFlowClick(target)) return true;
     if (await this.onTransferClick(target)) return true;
     const seasonView = target.closest<HTMLElement>('[data-season-view]');
     if (seasonView) {
@@ -380,6 +382,20 @@ export class App {
       return true;
     }
     return false;
+  }
+
+  /** Finishing the season, moving the close season on a week, and starting the new season. */
+  private async onSeasonFlowClick(target: HTMLElement): Promise<boolean> {
+    const game = this.game;
+    const act = target.closest<HTMLElement>('[data-act]')?.dataset.act;
+    if (!game || (act !== 'close-season' && act !== 'advance-week' && act !== 'start-season')) return false;
+    if (act === 'close-season') closeSeason(game);
+    else advanceSummer(game);
+    this.transfers.notice = null;
+    this.fixLineup();
+    await this.persist();
+    this.render();
+    return true;
   }
 
   /** Clicks on the Transfers screen and its negotiation and counter-offer sheets. */
@@ -586,7 +602,7 @@ export class App {
     const club = userClub(game);
     return `<div class="bar">
       <div class="logo">THE GAFFER</div>
-      <div class="meta"><span class="who">${crest(club.kit, 22)}<b>${esc(club.name)}</b></span><span class="hide-sm">WK <b>${game.season.round + 1}</b>/${MATCHES_PER_SEASON}</span><span>CASH <b>${gbp(club.cash)}</b></span></div>
+      <div class="meta"><span class="who">${crest(club.kit, 22)}<b>${esc(club.name)}</b></span><span class="hide-sm">${game.phase === 'summer' ? '<b>CLOSE SEASON</b>' : `WK <b>${Math.min(game.season.round + 1, MATCHES_PER_SEASON)}</b>/${MATCHES_PER_SEASON}`}</span><span>CASH <b>${gbp(club.cash)}</b></span></div>
     </div>
     <nav class="nav" aria-label="Screens">${NAV.map(
       ([id, label]) => `<button data-nav="${id}" aria-current="${this.screen === id}" type="button">${label}</button>`,

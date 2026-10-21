@@ -1,5 +1,5 @@
 import { addDays, matchdayDate } from './engine/calendar';
-import { CUP_ROUND_AFTER_MATCHDAY, MATCHES_PER_SEASON } from './engine/config';
+import { CUP_ROUND_AFTER_MATCHDAY, DIVISION_NAMES, MATCHES_PER_SEASON } from './engine/config';
 import { autoPlayCup, cupRoundDue, playCupRound, userTie, type UserCupScore } from './engine/cup';
 import { processCupFinances, type FinanceLine } from './engine/finance';
 import { toTeamSheet } from './engine/lineup';
@@ -10,14 +10,14 @@ import { createRng, type Rng } from './engine/rng';
 import { createYouthPlayer, positionNeeded } from './engine/squad';
 import { playMatchday } from './engine/season';
 import { shootout, cupStrength } from './engine/knockout';
+import { playoffPairing, playPlayoffs } from './engine/playoffs';
 import { processTransferWeek } from './engine/transferWeek';
 import { processWeek } from './engine/week';
-import type { CupTie } from './engine/types';
 import { repairLineup } from './engine/lineup';
 import { START_YEAR, type Game } from './game';
 
 export interface NextMatch {
-  kind: 'league' | 'cup';
+  kind: 'league' | 'cup' | 'playoff';
   homeId: string;
   awayId: string;
   /** The day it is played. */
@@ -29,9 +29,9 @@ export interface NextMatch {
 }
 
 /** The Wednesday after the league matchday that a cup round follows. */
-export function cupDate(round: number): string {
+export function cupDate(round: number, year: number = START_YEAR): string {
   const after = CUP_ROUND_AFTER_MATCHDAY[round] as number;
-  return addDays(matchdayDate(START_YEAR, after - 1), 4);
+  return addDays(matchdayDate(year, after - 1), 4);
 }
 
 /**
@@ -41,24 +41,42 @@ export function cupDate(round: number): string {
 export function nextMatch(game: Game): NextMatch | null {
   const { world, season, cup } = game;
   const me = world.userClubId;
+  if (game.phase === 'summer') return null;
   const due = cupRoundDue(cup, season.round);
   if (due !== null) {
     const round = cup.rounds[due]!;
     const tie = userTie(world, round);
     if (tie) {
-      return { kind: 'cup', homeId: tie.homeId, awayId: tie.awayId, date: cupDate(due), cupRound: due, label: `Challenge Cup, ${round.name}` };
+      return { kind: 'cup', homeId: tie.homeId, awayId: tie.awayId, date: cupDate(due, season.year), cupRound: due, label: `Challenge Cup, ${round.name}` };
     }
   }
-  if (season.round >= MATCHES_PER_SEASON) return null;
+  if (season.round >= MATCHES_PER_SEASON) return playoffMatch(game);
   const f = season.fixtures.find((x) => x.round === season.round && (x.homeId === me || x.awayId === me));
   if (!f) return null;
   return {
     kind: 'league',
     homeId: f.homeId,
     awayId: f.awayId,
-    date: matchdayDate(START_YEAR, f.round),
+    date: matchdayDate(season.year, f.round),
     cupRound: null,
     label: `Matchday ${f.round + 1}`,
+  };
+}
+
+/** The user's play-off final, if their club finished 3rd or 4th below the top division and it has not been played. */
+function playoffMatch(game: Game): NextMatch | null {
+  const { world, season } = game;
+  if (game.playoffs) return null;
+  const user = world.clubs[world.userClubId] as { division: number };
+  const pairing = playoffPairing(world, season, user.division);
+  if (!pairing || (pairing.homeId !== world.userClubId && pairing.awayId !== world.userClubId)) return null;
+  return {
+    kind: 'playoff',
+    homeId: pairing.homeId,
+    awayId: pairing.awayId,
+    date: addDays(matchdayDate(season.year, MATCHES_PER_SEASON - 1), 7),
+    cupRound: null,
+    label: `${DIVISION_NAMES[user.division]} play-off final`,
   };
 }
 
@@ -110,7 +128,7 @@ export function startSession(game: Game): MatchSession | null {
 }
 
 export interface MatchReport {
-  kind: 'league' | 'cup';
+  kind: 'league' | 'cup' | 'playoff';
   homeId: string;
   awayId: string;
   homeGoals: number;
@@ -145,6 +163,11 @@ export function completeMatch(game: Game, session: MatchSession): MatchReport {
     const results = playMatchday(world, season, rng, { homeGoals, awayGoals });
     const week = processWeek(world, season, results, rng);
     finance = week.userFinance;
+  } else if (match.kind === 'playoff') {
+    if (homeGoals === awayGoals) penalties = shootout(rng, cupStrength(world, season, match.homeId), cupStrength(world, season, match.awayId));
+    game.playoffs = playPlayoffs(world, season, rng, { homeGoals, awayGoals, penalties });
+    const mine = game.playoffs.filter((f) => f.homeId === me || f.awayId === me);
+    finance = cupFinance(game, mine, rng);
   } else {
     const level = homeGoals === awayGoals;
     if (level) penalties = shootout(rng, cupStrength(world, season, match.homeId), cupStrength(world, season, match.awayId));
@@ -164,7 +187,7 @@ export function completeMatch(game: Game, session: MatchSession): MatchReport {
   const userGoals = userHome ? homeGoals : awayGoals;
   const theirGoals = userHome ? awayGoals : homeGoals;
   const shootoutWin = penalties ? (userHome ? penalties[0] > penalties[1] : penalties[1] > penalties[0]) : null;
-  const userWon = userGoals === theirGoals ? (match.kind === 'cup' ? shootoutWin : null) : userGoals > theirGoals;
+  const userWon = userGoals === theirGoals ? (match.kind !== 'league' ? shootoutWin : null) : userGoals > theirGoals;
   return {
     kind: match.kind,
     homeId: match.homeId,
@@ -180,7 +203,7 @@ export function completeMatch(game: Game, session: MatchSession): MatchReport {
 }
 
 /** The user's line from a cup round, taking the gate for a home tie and sponsors either way. */
-function cupFinance(game: Game, ties: readonly CupTie[], rng: Rng): FinanceLine | null {
+function cupFinance(game: Game, ties: readonly { homeId: string; awayId: string }[], rng: Rng): FinanceLine | null {
   const lines = processCupFinances(game.world, game.season, ties, rng);
   return lines.find((l) => l.clubId === game.world.userClubId) ?? null;
 }

@@ -75,7 +75,7 @@ export function preMatchHtml(game: Game, session: MatchSession): string {
         <div><div class="stat"><span>Their strength</span><span>${theirs}</span></div>
           <div class="stat"><span>Your team</span><span class="${mine >= theirs ? 'grn' : 'red'}">${mine}</span></div>
           <div class="stat"><span>Played</span><span>${esc(shortDate(session.match.date))}</span></div></div></div>
-      <div class="note" style="margin-top:8px">Changes before kick off are free. They do not use up substitutions.${session.match.kind === 'cup' ? ' A level score after 90 minutes goes to penalties.' : ''}</div>
+      <div class="note" style="margin-top:8px">Changes before kick off are free. They do not use up substitutions.${session.match.kind !== 'league' ? ' A level score after 90 minutes goes to penalties.' : ''}</div>
       ${session.calledUp.length ? `<div class="resp bad" style="margin-top:10px">You had too few fit players, so ${session.calledUp.length} academy player${session.calledUp.length > 1 ? 's were' : ' was'} called up.</div>` : ''}
     </div>
     <div class="grid g21" style="margin-top:18px">
