@@ -381,7 +381,7 @@ function sendOff(state: MatchState, side: Side, playerId: string): void {
   if (s.forcedSub === playerId) s.forcedSub = null;
 }
 
-function injurySeverity(rng: Rng): number {
+export function injurySeverity(rng: Rng): number {
   const r = rng.next();
   if (r < 0.5) return rng.int(1, 2);
   if (r < 0.8) return rng.int(3, 5);

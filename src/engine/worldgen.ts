@@ -5,6 +5,7 @@ import {
   DIVISION_BASE_CASH,
   DIVISION_COUNT,
   DIVISION_TICKET_PRICE,
+  ECONOMY,
   SQUAD_TEMPLATE,
   USER_START_CASH,
   USER_START_DIVISION,
@@ -18,8 +19,10 @@ import {
   GROUND_NAMES,
   LAST_NAMES,
 } from './data/names';
+import { generateOffers, sponsorBase } from './sponsors';
+import { SPONSOR_NAMES } from './data/sponsors';
 import { createRng, type Rng } from './rng';
-import type { Club, Kit, NewClubOptions, Player, Stats, World } from './types';
+import type { Club, Kit, NewClubOptions, Player, Sponsor, Stats, World } from './types';
 
 export const DEFAULT_NEW_CLUB: NewClubOptions = {
   name: 'New Club FC',
@@ -87,6 +90,7 @@ function createSquad(
     const potential =
       age <= 23 ? ability + rng.int(3, 12) : age <= 27 ? ability + rng.int(0, 5) : ability;
     const wage = wageForAbility(ability);
+    const happiness = rng.pick([2, 3, 3, 3, 4, 4, 5]);
     const { firstName, lastName } = uniqueName(rng, book);
     return {
       id: nextId(),
@@ -99,13 +103,17 @@ function createSquad(
       potential: Math.min(potential, 99),
       wage,
       contractGames: rng.int(8, 76),
-      happiness: rng.pick([2, 3, 3, 3, 4, 4, 5]),
+      happiness,
       form: 3,
       fatigue: 0,
       injury: null,
       value: valueFor(wage, age),
       seasonStats: emptyStats(),
       careerStats: emptyStats(),
+      formRating: 3,
+      mood: happiness,
+      playShare: 0.6,
+      growth: 0,
     };
   });
 }
@@ -151,6 +159,9 @@ export function generateWorld(seed: number, userClub: NewClubOptions = DEFAULT_N
     return name;
   };
 
+  const aiSponsors = (division: number, count: number): Sponsor[] =>
+    rng.shuffle(SPONSOR_NAMES.slice(1)).slice(0, count).map((name) => ({ name, perMatch: roundTo(sponsorBase(division) * (0.8 + rng.next() * 0.4), 100) }));
+
   const addClub = (club: Club, offset: number): void => {
     clubs[club.id] = club;
     divisions[club.division]?.push(club.id);
@@ -185,6 +196,9 @@ export function generateWorld(seed: number, userClub: NewClubOptions = DEFAULT_N
             sponsorSlots: 1,
             playerIds: [],
             isUser: true,
+            sponsors: [{ name: SPONSOR_NAMES[0] as string, perMatch: sponsorBase(division) }],
+            building: null,
+            fanBase: Math.round((DIVISION_BASE_CAPACITY[division] ?? 4200) * ECONOMY.attendance.baseFill),
           },
           0,
         );
@@ -206,6 +220,9 @@ export function generateWorld(seed: number, userClub: NewClubOptions = DEFAULT_N
           sponsorSlots: DIVISION_COUNT - division,
           playerIds: [],
           isUser: false,
+          sponsors: aiSponsors(division, DIVISION_COUNT - division),
+          building: null,
+          fanBase: Math.round(capacity * ECONOMY.attendance.baseFill),
         },
         clamp(rng.normal(0, 2.2), -5, 5),
       );
@@ -216,5 +233,14 @@ export function generateWorld(seed: number, userClub: NewClubOptions = DEFAULT_N
   const user = Object.values(clubs).find((c) => c.isUser);
   if (!user) throw new Error('User club was not created');
 
-  return { seed, clubs, players, divisions, userClubId: user.id, honours: [] };
+  return {
+    seed,
+    clubs,
+    players,
+    divisions,
+    userClubId: user.id,
+    honours: [],
+    sponsorOffers: generateOffers(USER_START_DIVISION, rng, new Set([SPONSOR_NAMES[0] as string])),
+    freeAgents: [],
+  };
 }

@@ -10,8 +10,8 @@ export const DIVISION_NAMES: readonly string[] = ['Division One', 'Division Two'
 
 /** Typical player rating in each division, top division first. */
 export const DIVISION_BASE_ABILITY: readonly number[] = [82, 77, 72, 68];
-export const DIVISION_BASE_CAPACITY: readonly number[] = [18000, 11000, 7000, 4200];
-export const DIVISION_TICKET_PRICE: readonly number[] = [24, 18, 14, 11];
+export const DIVISION_BASE_CAPACITY: readonly number[] = [9000, 6500, 5000, 4200];
+export const DIVISION_TICKET_PRICE: readonly number[] = [13, 12, 12, 11];
 export const DIVISION_BASE_CASH: readonly number[] = [900000, 350000, 150000, 60000];
 
 export const USER_START_CASH = 86400;
@@ -118,4 +118,41 @@ export const MATCH = {
   penaltyConversion: 0.78,
   fatiguePerMinute: 0.42,
   injuryPerPlayerMinute: 0.0001,
+};
+
+/** Money. Tuned so a typical club in any division roughly breaks even or makes a small profit on wages. */
+export const ECONOMY = {
+  /** Sponsor income per slot per match, by division. */
+  sponsorPerSlot: [3600, 3600, 3800, 4000] as readonly number[],
+  /** Weekly upkeep for each seat in the stadium. */
+  runningCostPerSeat: 0.4,
+  attendance: {
+    /** A new club's fan base as a share of its stadium. */
+    baseFill: 0.74,
+    /** How much the crowd swings from the club's recent form, either way. */
+    formSwing: 0.08,
+    /** How much it swings from league position, either way. */
+    positionSwing: 0.1,
+    noise: 0.03,
+    /** The crowd never falls below this share of the fan base. */
+    minShare: 0.6,
+    /** Fan base changes at the end of a season. */
+    promotionGrowth: 0.15,
+    relegationLoss: 0.1,
+    topThreeGrowth: 0.05,
+    bottomThreeLoss: 0.04,
+    cupWinGrowth: 0.05,
+  },
+  costPerSeat: 120,
+  buildMatchdays: 6,
+  minBuildSeats: 100,
+  maxBuildSeats: 5000,
+};
+
+export const CONTRACT = {
+  minGames: 19,
+  maxGames: 76,
+  /** Matchdays of rest that bring fatigue down: some fixed, some proportional. */
+  recoveryFlat: 10,
+  recoveryShare: 0.35,
 };

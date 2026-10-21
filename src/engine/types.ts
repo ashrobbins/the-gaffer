@@ -60,6 +60,14 @@ export interface Player {
   value: number;
   seasonStats: Stats;
   careerStats: Stats;
+  /** Recent form as a number from 1 to 5, built from match performances. `form` is this, rounded. */
+  formRating: number;
+  /** Mood as a number from 1 to 5, built from form and playing time. `happiness` is this, rounded. */
+  mood: number;
+  /** Share of recent matches he has played, 0 to 1. A player who expects to start and does not play gets unhappy. */
+  playShare: number;
+  /** Progress towards the next rating point, 0 to 99. */
+  growth: number;
 }
 
 export interface Stadium {
@@ -79,6 +87,37 @@ export interface Club {
   sponsorSlots: number;
   playerIds: string[];
   isUser: boolean;
+  /** How many people would normally turn up to a home match. A bigger ground only earns more if this is bigger too. */
+  fanBase: number;
+  /** Sponsorship deals. There is room for `sponsorSlots` of them. */
+  sponsors: Sponsor[];
+  /** A stand being built, or null. */
+  building: StadiumBuild | null;
+}
+
+export interface Sponsor {
+  name: string;
+  /** Paid for every match, home or away. */
+  perMatch: number;
+}
+
+export interface StadiumBuild {
+  seats: number;
+  matchdaysLeft: number;
+}
+
+export type Achievement =
+  | { kind: 'win-streak'; target: number }
+  | { kind: 'points'; target: number }
+  | { kind: 'clean-sheets'; target: number }
+  | { kind: 'top-three'; target: 1 };
+
+/** A sponsor who will sign once the club has done something. */
+export interface SponsorOffer {
+  id: string;
+  name: string;
+  perMatch: number;
+  requirement: Achievement;
 }
 
 export interface World {
@@ -90,7 +129,12 @@ export interface World {
   userClubId: string;
   /** League titles and cups the user's club has won. */
   honours: Honour[];
+  sponsorOffers: SponsorOffer[];
+  /** Players without a club. Their `clubId` is `FREE_AGENT`. */
+  freeAgents: string[];
 }
+
+export const FREE_AGENT = 'free';
 
 export interface NewClubOptions {
   name: string;

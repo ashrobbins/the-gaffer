@@ -90,3 +90,15 @@ Retro pixel-art football management game. Mobile first. The visual reference is 
 - Injury chance per player per minute rises with tiredness and sharply above 80%, and a little with age.
 - Calibration (matches between teams in one division): about 2.6 goals, 23 shots, 9 corners, 2.5 yellow cards, 0.1-0.2 red cards, 0.3 penalties and 0.2 injuries per match, home win about 42%, draw about 27%.
 - Key moments are events with data. `commentary()` turns them into the capital-letter text shown on screen.
+
+## Money, contracts and progression notes
+- Each matchday every club banks its sponsors, home clubs bank the gate (crowd times ticket price), and every club pays its wage bill and stadium running costs (0.4 per seat per week). Cup ties pay the home gate and both sponsors but no extra wages.
+- Crowds come from the club's fan base, swung by recent form and league position, and are capped by the stadium. Extra seats earn nothing until the fan base outgrows the ground. Fans grow with promotion (+15%), a top-three finish (+5%) and cup wins, and shrink with relegation (-10%) or a bottom-three finish.
+- The economy is tuned so a typical club in any division roughly breaks even or makes a small profit. The user's starting club is close to break-even, so wages need watching.
+- Stadium: seats cost 120 each, the money is spent up front, and the seats open six matchdays later.
+- Contracts count down by one every matchday. A computer club re-signs its players at the going rate. When the user's player runs out he leaves and becomes a free agent.
+- Renewal chance (0 to 100) rises with mood, form and the wage offered against what he expects, falls hard for a pay cut, likes a short deal slightly and a long one slightly less.
+- Form (1 to 5) comes from match performance ratings. Mood (1 to 5) comes from form and playing time: a player who expects to start and is left out gets unhappy.
+- Growth: good performances build progress towards the next rating point, capped by potential. At the end of a season everyone ages, the young improve, players in their prime hold, and older players decline.
+- Fatigue recovers every matchday (faster when more tired) and injuries heal by a week each matchday. Computer clubs' players pick up injuries at random, more often when tired.
+- Not yet handled: a club with fewer than eleven fit players (the user's squad can shrink as contracts expire; free agents can be signed once transfers are built).

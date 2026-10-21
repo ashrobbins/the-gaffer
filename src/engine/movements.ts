@@ -1,4 +1,5 @@
-import { CUP_NAME, DIVISION_COUNT, DIVISION_NAMES, ROUNDS_PER_SEASON } from './config';
+import { CUP_NAME, DIVISION_COUNT, DIVISION_NAMES, ECONOMY, ROUNDS_PER_SEASON } from './config';
+import { adjustFanBase } from './finance';
 import { champion, zoneFor } from './league';
 import { tableFor } from './season';
 import type { Cup, Honour, PlayoffFinal, Season, World } from './types';
@@ -63,6 +64,9 @@ export function applyMovements(world: World, movements: SeasonMovements): void {
       const club = world.clubs[id];
       if (!club) continue;
       const wasPromoted = club.division > division;
+      const wasRelegated = club.division < division;
+      if (wasPromoted) adjustFanBase(club, ECONOMY.attendance.promotionGrowth);
+      if (wasRelegated) adjustFanBase(club, -ECONOMY.attendance.relegationLoss);
       club.division = division;
       club.sponsorSlots = club.isUser
         ? wasPromoted
