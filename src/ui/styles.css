@@ -235,3 +235,6 @@ tr.champ td{background:var(--gold);color:#1a1300;border-bottom-color:#b8860b}tr.
 
 /* Four shirt styles do not fit across a phone, so they sit two by two. */
 @media(max-width:480px){.kits{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* A shirt sits in the middle of its team's column. */
+.fixture-team svg.px{margin-inline:auto}

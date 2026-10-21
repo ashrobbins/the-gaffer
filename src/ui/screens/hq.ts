@@ -64,9 +64,9 @@ export function renderHq(game: Game): string {
   const fixtureBox = fixture
     ? `<div class="box"><h2>Next fixture <small>Matchday ${game.season.round + 1} · ${shortDate(fixture.date)}</small></h2>
         <div class="grid" style="grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;text-align:center">
-          <div>${shirt(fixture.home ? club.kit : fixture.opponent.kit, 76)}<div style="margin-top:8px">${esc(fixture.home ? club.name : fixture.opponent.name)}</div><div class="mini">${fixture.home ? 'Home' : 'Away'}</div></div>
+          <div class="fixture-team">${shirt(fixture.home ? club.kit : fixture.opponent.kit, 76)}<div style="margin-top:8px">${esc(fixture.home ? club.name : fixture.opponent.name)}</div><div class="mini">${fixture.home ? 'Home' : 'Away'}</div></div>
           <div class="big">V</div>
-          <div>${shirt(fixture.home ? fixture.opponent.kit : club.kit, 76)}<div style="margin-top:8px">${esc(fixture.home ? fixture.opponent.name : club.name)}</div><div class="mini">${fixture.home ? 'Away' : 'Home'}</div></div>
+          <div class="fixture-team">${shirt(fixture.home ? fixture.opponent.kit : club.kit, 76)}<div style="margin-top:8px">${esc(fixture.home ? fixture.opponent.name : club.name)}</div><div class="mini">${fixture.home ? 'Away' : 'Home'}</div></div>
         </div>
         <p class="note center" style="margin-top:12px">Played at ${esc((fixture.home ? club : fixture.opponent).stadium.name)}</p>
         <div class="row2" style="margin-top:16px"><button class="btn" data-act="go-match" type="button">Go to match</button></div>

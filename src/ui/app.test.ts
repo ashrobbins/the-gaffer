@@ -234,6 +234,14 @@ describe('the screens', () => {
     expect(text).toContain(other.name);
   });
 
+  it('puts each team shirt in a column that centres it', async () => {
+    const app = await boot();
+    await createDefaultClub(app);
+    const teams = root.querySelectorAll('.fixture-team');
+    expect(teams).toHaveLength(2);
+    for (const t of teams) expect(t.querySelector('svg.px')).not.toBeNull();
+  });
+
   it('lists the next league matches under Coming up', async () => {
     const app = await boot();
     await createDefaultClub(app);
