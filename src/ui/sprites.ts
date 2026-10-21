@@ -107,3 +107,27 @@ export function crest(kit: Kit, width = 30): string {
     width,
   );
 }
+
+const TROPHY: Template = [
+  '..oooooooooo..',
+  'oooyyyyyyyyooo',
+  'oyoyhyyyyyyoyo',
+  'oyoyhyyyyyyoyo',
+  'oyoyyyyyyyyoyo',
+  '.oooyyyyyyooo.',
+  '...oyyyyyyo...',
+  '....oyyyyo....',
+  '.....oyyo.....',
+  '.....oyyo.....',
+  '....oyyyyo....',
+  '...oyyyyyyo...',
+  '..oooooooooo..',
+  '..oddddddddo..',
+  '..oooooooooo..',
+];
+
+/** A trophy: gold for a league title, silver for a cup. */
+export function trophy(kind: 'league' | 'cup', width = 64): string {
+  const base = kind === 'league' ? '#ffc933' : '#c9d6ea';
+  return pix(TROPHY, (ch) => (ch === 'o' ? INK : ch === 'd' ? shade(base, 0.55) : ch === 'h' ? '#fffbe0' : base), width);
+}

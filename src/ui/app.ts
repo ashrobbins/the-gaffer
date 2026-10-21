@@ -10,6 +10,10 @@ import { renderHq, userClub } from './screens/hq';
 import { renderMatchDay } from './screens/misc';
 import { mountNewGame } from './screens/newGame';
 import { crest } from './sprites';
+import { drawStadium } from './stadiumArt';
+import { startStadiumBuild } from '../engine/finance';
+import { signSponsor } from '../engine/sponsors';
+import { STANDS } from './screens/club';
 import { MatchController } from './match';
 import { liveMatchHtml, planSheetHtml, preMatchHtml } from './screens/match';
 import { startSession } from '../play';
@@ -288,6 +292,7 @@ export class App {
       this.render();
       return true;
     }
+    if (await this.onClubClick(target)) return true;
     if (await this.onSeasonFlowClick(target)) return true;
     if (await this.onTransferClick(target)) return true;
     const seasonView = target.closest<HTMLElement>('[data-season-view]');
@@ -380,6 +385,40 @@ export class App {
       this.render();
       this.renderSheet(false);
       return true;
+    }
+    return false;
+  }
+
+  /** Building a stand and signing a sponsor on the Club page. */
+  private async onClubClick(target: HTMLElement): Promise<boolean> {
+    const game = this.game;
+    if (!game) return false;
+    const build = target.closest<HTMLButtonElement>('[data-build]');
+    if (build) {
+      if (build.disabled) return true;
+      const i = Number(build.dataset.build);
+      if (this.club.confirmingBuild === i) {
+        startStadiumBuild(game.world, game.world.userClubId, (STANDS[i] as { seats: number }).seats);
+        this.club.confirmingBuild = null;
+        await this.persist();
+      } else {
+        this.club.confirmingBuild = i;
+      }
+      this.render();
+      return true;
+    }
+    const sign = target.closest<HTMLButtonElement>('[data-sponsor-sign]');
+    if (sign) {
+      if (!sign.disabled) {
+        signSponsor(game.world, game.season, sign.dataset.sponsorSign as string);
+        await this.persist();
+        this.render();
+      }
+      return true;
+    }
+    if (this.club.confirmingBuild !== null && this.club.confirmingBuild !== undefined) {
+      this.club.confirmingBuild = null;
+      this.render();
     }
     return false;
   }
@@ -622,7 +661,7 @@ export class App {
       case 'transfers':
         return renderTransfers(game, userClub(game), this.transfers);
       case 'club':
-        return renderClubScreen(this.club);
+        return renderClubScreen(game, userClub(game), this.club);
       case 'match':
         if (!this.match) return renderMatchDay();
         return this.match.phase === 'pre' ? preMatchHtml(game, this.match.session) : liveMatchHtml(game, this.match.session, this.match);
@@ -637,6 +676,9 @@ export class App {
       ${this.saveFailed ? '<p class="foot" role="status">This device would not let the game be saved. Your progress will be lost when you close the page.</p>' : ''}
     </div>`;
     this.renderSheet(false);
+    for (const canvas of shell.querySelectorAll<HTMLCanvasElement>('canvas.art')) {
+      if (this.game) drawStadium(canvas, Number(canvas.dataset.cap), userClub(this.game).kit);
+    }
     if (!this.game) {
       mountNewGame(shell.querySelector<HTMLElement>('#screen') as HTMLElement, (options) => void this.createClub(options));
     }
