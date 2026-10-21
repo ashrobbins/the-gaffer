@@ -16,6 +16,7 @@ import { startSession } from '../play';
 import { MATCHES_PER_SEASON } from '../engine/config';
 import { attachLineupDnd, type LineupRef } from './dnd';
 import { contractDynamic, contractSheet, defaultOffer, playerSheet, type SheetState } from './sheets';
+import { initialSeasonState, renderSeason, type SeasonScreenState, type SeasonView } from './screens/season';
 import { renderTeam, type TeamScreenState, type TeamTab } from './screens/team';
 
 export type Screen = 'hq' | 'team' | 'season' | 'transfers' | 'club' | 'match';
@@ -44,6 +45,7 @@ export class App {
   private screen: Screen = 'hq';
   private club: ClubScreenState = { tab: 'stadium', confirmingReset: false };
   private team: TeamScreenState = { tab: 'tactics' };
+  private seasonScreen: SeasonScreenState = initialSeasonState();
   private sheet: SheetState | null = null;
   private match: MatchController | null = null;
   private saveFailed = false;
@@ -94,6 +96,7 @@ export class App {
     this.screen = 'hq';
     this.club = { tab: 'stadium', confirmingReset: false };
     this.team = { tab: 'tactics' };
+    this.seasonScreen = initialSeasonState();
     this.sheet = null;
     await this.persist();
     this.render();
@@ -272,6 +275,24 @@ export class App {
       this.render();
       return true;
     }
+    const seasonView = target.closest<HTMLElement>('[data-season-view]');
+    if (seasonView) {
+      this.seasonScreen.view = seasonView.dataset.seasonView as SeasonView;
+      this.render();
+      return true;
+    }
+    const seasonDiv = target.closest<HTMLElement>('[data-season-div]');
+    if (seasonDiv) {
+      this.seasonScreen.division = Number(seasonDiv.dataset.seasonDiv);
+      this.render();
+      return true;
+    }
+    const cupRound = target.closest<HTMLElement>('[data-cup-round]');
+    if (cupRound) {
+      this.seasonScreen.cupRound = Number(cupRound.dataset.cupRound);
+      this.render();
+      return true;
+    }
     const formation = target.closest<HTMLElement>('[data-formation]');
     if (formation) {
       game.lineup = setFormation(game.world, game.lineup, formation.dataset.formation as FormationId);
@@ -445,7 +466,7 @@ export class App {
       case 'team':
         return renderTeam(game, userClub(game), this.team);
       case 'season':
-        return renderComingSoon('Season', ['The league table and results', 'Top scorers', 'The Challenge Cup']);
+        return renderSeason(game, this.seasonScreen);
       case 'transfers':
         return renderComingSoon('Transfers', ['The market, with the window dates', 'Fee and wage negotiations', 'Offers for your players']);
       case 'club':

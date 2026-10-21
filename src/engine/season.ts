@@ -2,6 +2,7 @@ import { ROUNDS_PER_SEASON } from './config';
 import { generateFixtures } from './fixtures';
 import { buildTable } from './league';
 import type { Rng } from './rng';
+import { creditGoals } from './scorers';
 import { matchStrength, simulateScore, teamRating } from './sim';
 import type { MatchResult, Season, StandingRow, World } from './types';
 
@@ -60,6 +61,11 @@ export function playMatchday(world: World, season: Season, rng: Rng, userScore?:
       const score =
         isUserMatch && userScore ? userScore : simulateScore(strength(f.homeId), strength(f.awayId), rng);
       played.push({ division, round: f.round, homeId: f.homeId, awayId: f.awayId, homeGoals: score.homeGoals, awayGoals: score.awayGoals });
+      // The user's goals are credited by the match itself. Everyone else's go to players here.
+      if (!isUserMatch) {
+        creditGoals(world, f.homeId, score.homeGoals, world.seed + f.round * 7919 + division * 104729 + 1);
+        creditGoals(world, f.awayId, score.awayGoals, world.seed + f.round * 7919 + division * 104729 + 2);
+      }
     }
   });
 
