@@ -242,5 +242,8 @@ export function generateWorld(seed: number, userClub: NewClubOptions = DEFAULT_N
     honours: [],
     sponsorOffers: generateOffers(USER_START_DIVISION, rng, new Set([SPONSOR_NAMES[0] as string])),
     freeAgents: [],
+    market: [],
+    incomingBids: [],
+    transferBlocks: {},
   };
 }

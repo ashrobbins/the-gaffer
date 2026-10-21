@@ -156,3 +156,30 @@ export const CONTRACT = {
   recoveryFlat: 10,
   recoveryShare: 0.35,
 };
+
+export const TRANSFER = {
+  maxSquad: 22,
+  /** The user cannot sell below this many players. */
+  minSquad: 16,
+  attempts: 3,
+  /** Days before the user can reopen talks with a player who walked away. */
+  blockDays: 7,
+  signingContractGames: 76,
+  maxBids: 5,
+  /** Offers to a club: share of its asking price, and the chance it accepts. */
+  feeOffers: {
+    low: { factor: 0.85, chance: 0.25 },
+    market: { factor: 1, chance: 0.6 },
+    high: { factor: 1.15, chance: 0.9 },
+  },
+  /** Offers to a player: share of what he expects, and the chance he accepts. */
+  wageOffers: {
+    low: { factor: 0.88, chance: 0.25 },
+    market: { factor: 1, chance: 0.6 },
+    high: { factor: 1.12, chance: 0.9 },
+  },
+  /** Chance lost for each division a player would drop to join the user's club. */
+  divisionDropPenalty: 0.08,
+  /** Counter-offers: the most a side will ask for, as a share of its asking price. */
+  counterCeiling: 1.2,
+};

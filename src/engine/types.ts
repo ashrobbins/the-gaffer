@@ -130,8 +130,31 @@ export interface World {
   /** League titles and cups the user's club has won. */
   honours: Honour[];
   sponsorOffers: SponsorOffer[];
+  /** Players computer clubs are willing to sell, and free agents, for the user to bid for. */
+  market: MarketEntry[];
+  /** Offers from computer clubs for the user's players. */
+  incomingBids: TransferBid[];
+  /** Players the user cannot negotiate with again until the date given, after talks collapsed. */
+  transferBlocks: Record<string, string>;
   /** Players without a club. Their `clubId` is `FREE_AGENT`. */
   freeAgents: string[];
+}
+
+export interface MarketEntry {
+  playerId: string;
+  /** The club selling him, or null for a free agent. */
+  sellerClubId: string | null;
+  /** What the club wants. Zero for a free agent. */
+  askingFee: number;
+}
+
+export interface TransferBid {
+  id: string;
+  playerId: string;
+  buyerClubId: string;
+  fee: number;
+  /** How many times the user has countered without success. */
+  counters: number;
 }
 
 export const FREE_AGENT = 'free';

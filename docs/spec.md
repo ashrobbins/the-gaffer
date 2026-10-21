@@ -102,3 +102,11 @@ Retro pixel-art football management game. Mobile first. The visual reference is 
 - Growth: good performances build progress towards the next rating point, capped by potential. At the end of a season everyone ages, the young improve, players in their prime hold, and older players decline.
 - Fatigue recovers every matchday (faster when more tired) and injuries heal by a week each matchday. Computer clubs' players pick up injuries at random, more often when tired.
 - Not yet handled: a club with fewer than eleven fit players (the user's squad can shrink as contracts expire; free agents can be signed once transfers are built).
+
+## Transfer notes
+- Dates are ISO strings. League matchday 0 is the first Saturday on or after 20 August, then one a week (matchday 12 is 14 November). The winter window is all of January. The summer window runs 24 May to 16 August and moves a week at a time.
+- The market lists a few reserves and older players from each computer club, plus every free agent. A club asks a price close to the player's market value. The list can be browsed while the window is shut, but nobody can be signed.
+- Signing is two steps with three attempts each: the fee with the selling club, then the wage with the player. Offers are lower, market or higher with odds of 25%, 60% and 90%. A player dropping down divisions to join the user's club is 8% less keen per division. A refusal brings a counter-offer that can be accepted. Three refusals end the talks and block that player for seven days. Free agents skip the fee.
+- A signing gets a two-season contract. The squad limit is 22, and the user cannot sell below 16 players.
+- Computer clubs bid for the user's players while a window is open (at most five offers at once). The user can accept, reject or counter. Asking for more than half as much again is never accepted, and a second refused counter makes the club walk away.
+- Computer clubs also trade with each other. Every club keeps a squad of 18: a club that sells is topped up from free agents or its academy, and a club that buys lets a reserve go.
