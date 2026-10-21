@@ -29,8 +29,50 @@ export function attachLineupDnd(root: HTMLElement, handlers: DndHandlers): void 
     over: HTMLElement | null;
     halfWidth: number;
     halfHeight: number;
+    pointerX: number;
+    pointerY: number;
+    scroller: HTMLElement | null;
+    frame: number;
   }
   let drag: Drag | null = null;
+
+  /** How close to the top or bottom of the view a drag must be before the page scrolls, and how fast it goes. */
+  const EDGE = 90;
+  const MAX_SPEED = 18;
+
+  const scrollParent = (el: HTMLElement): HTMLElement | null => {
+    for (let p = el.parentElement; p; p = p.parentElement) {
+      const overflow = getComputedStyle(p).overflowY;
+      if ((overflow === 'auto' || overflow === 'scroll') && p.scrollHeight > p.clientHeight) return p;
+    }
+    return null;
+  };
+
+  const updateOver = (d: Drag): void => {
+    const over = targetAt(d.pointerX, d.pointerY, d.el);
+    if (over !== d.over) {
+      d.over?.classList.remove('drop');
+      d.over = over;
+      over?.classList.add('drop');
+    }
+  };
+
+  /** While the finger is near the top or bottom edge, scroll the page (or the sheet) that way, so a player can be carried a long way. */
+  const autoScroll = (d: Drag): void => {
+    if (drag !== d) return;
+    const area = d.scroller ? d.scroller.getBoundingClientRect() : { top: 0, bottom: window.innerHeight };
+    const top = Math.max(0, area.top);
+    const bottom = Math.min(window.innerHeight, area.bottom);
+    let speed = 0;
+    if (d.pointerY < top + EDGE) speed = -MAX_SPEED * Math.min(1, (top + EDGE - d.pointerY) / EDGE);
+    else if (d.pointerY > bottom - EDGE) speed = MAX_SPEED * Math.min(1, (d.pointerY - (bottom - EDGE)) / EDGE);
+    if (speed !== 0) {
+      if (d.scroller) d.scroller.scrollTop += speed;
+      else window.scrollBy(0, speed);
+      updateOver(d);
+    }
+    d.frame = requestAnimationFrame(() => autoScroll(d));
+  };
 
   const targetAt = (x: number, y: number, except: HTMLElement): HTMLElement | null => {
     const el = typeof document.elementFromPoint === 'function' ? document.elementFromPoint(x, y) : null;
@@ -42,7 +84,7 @@ export function attachLineupDnd(root: HTMLElement, handlers: DndHandlers): void 
     const ev = e as PointerEvent;
     const el = (ev.target as HTMLElement).closest<HTMLElement>(SELECTOR);
     if (!el || (ev.pointerType === 'mouse' && ev.button !== 0)) return;
-    drag = { el, startX: ev.clientX, startY: ev.clientY, moving: false, ghost: null, over: null, halfWidth: 0, halfHeight: 0 };
+    drag = { el, startX: ev.clientX, startY: ev.clientY, moving: false, ghost: null, over: null, halfWidth: 0, halfHeight: 0, pointerX: ev.clientX, pointerY: ev.clientY, scroller: null, frame: 0 };
   });
 
   document.addEventListener('pointermove', (e) => {
@@ -67,15 +109,15 @@ export function attachLineupDnd(root: HTMLElement, handlers: DndHandlers): void 
       drag.halfWidth = drag.el.offsetWidth / 2;
       drag.halfHeight = drag.el.offsetHeight / 2;
       drag.el.classList.add('dragging');
+      drag.scroller = scrollParent(drag.el);
+      const d = drag;
+      d.frame = requestAnimationFrame(() => autoScroll(d));
     }
     const x = Math.max(0, Math.min(window.innerWidth - drag.halfWidth * 2, ev.clientX - drag.halfWidth));
     (drag.ghost as HTMLElement).style.transform = `translate(${x}px,${ev.clientY - drag.halfHeight}px)`;
-    const over = targetAt(ev.clientX, ev.clientY, drag.el);
-    if (over !== drag.over) {
-      drag.over?.classList.remove('drop');
-      drag.over = over;
-      over?.classList.add('drop');
-    }
+    drag.pointerX = ev.clientX;
+    drag.pointerY = ev.clientY;
+    updateOver(drag);
   });
 
   const finish = (ev: PointerEvent, cancelled: boolean): void => {
@@ -86,6 +128,7 @@ export function attachLineupDnd(root: HTMLElement, handlers: DndHandlers): void 
       if (!cancelled) handlers.onTap(refOf(d.el));
       return;
     }
+    cancelAnimationFrame(d.frame);
     d.ghost?.remove();
     d.over?.classList.remove('drop');
     d.el.classList.remove('dragging');
