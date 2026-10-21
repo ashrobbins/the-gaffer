@@ -91,7 +91,7 @@ export function renderHq(game: Game): string {
     const home = game.world.clubs[next.homeId] as Club;
     const away = game.world.clubs[next.awayId] as Club;
     fixtureBox = `<div class="box"><h2>Next fixture <small>${esc(next.label)} · ${shortDate(next.date)}</small></h2>
-        <div class="grid" style="grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;text-align:center">
+        <div class="grid" style="grid-template-columns:1fr auto 1fr;align-items:start;gap:10px;text-align:center">
           <div class="fixture-team">${shirt(home.kit, 76)}<div style="margin-top:8px">${esc(home.name)}</div><div class="mini">Home</div></div>
           <div class="big">V</div>
           <div class="fixture-team">${shirt(away.kit, 76)}<div style="margin-top:8px">${esc(away.name)}</div><div class="mini">Away</div></div>

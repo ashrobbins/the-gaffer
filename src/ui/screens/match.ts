@@ -141,7 +141,7 @@ function fullTimeHtml(game: Game, view: MatchView): string {
   const result = r.userWon === null ? 'DRAW' : r.userWon ? 'WIN' : 'DEFEAT';
   return `<div class="tact" id="full-time"><h2 class="h2">Full time <small>${r.homeGoals}-${r.awayGoals}${r.penalties ? ` (pens ${r.penalties[0]}-${r.penalties[1]})` : ''}</small></h2>
     <div class="stat"><span>Result</span><span class="${r.userWon === null ? 'gold' : r.userWon ? 'grn' : 'red'}">${result}</span></div>
-    ${fin ? `<div class="stat"><span>Gate income</span><span class="grn">${fin.attendance === null ? 'No gate (away)' : `+${gbp(fin.gate)} <span class="dim">(${num(fin.attendance)} fans)</span>`}</span></div>
+    ${fin ? `<div class="stat"><span>Gate income</span><span class="grn">${fin.attendance === null ? 'None (away)' : `+${gbp(fin.gate)} <span class="dim">(${num(fin.attendance)} fans)</span>`}</span></div>
       <div class="stat"><span>Sponsors</span><span class="grn">+${gbp(fin.sponsors)}</span></div>
       ${fin.wages ? `<div class="stat"><span>Wages and upkeep</span><span class="red">-${gbp(fin.wages + fin.running)}</span></div>` : ''}
       <div class="stat"><span class="gold">Net</span><span class="${fin.net >= 0 ? 'grn' : 'red'}">${fin.net >= 0 ? '+' : ''}${gbp(fin.net)}</span></div>` : ''}

@@ -85,7 +85,7 @@ function tieRow(game: Game, t: CupTie): string {
 function runLine(game: Game, i: number, round: CupRound, status: ReturnType<typeof userCupStatus>): string {
   const tie = userTie(game.world, round);
   const date = shortDate(cupDate(i, game.season.year));
-  const name = `${esc(round.name)} <span class="dim">${date}</span>`;
+  const name = `${esc(round.name)}<span class="dim" style="display:block;margin-top:3px">${date}</span>`;
   if (tie?.played) {
     const home = club(game, tie.homeId).isUser;
     const [mine, theirs] = home ? [tie.homeGoals, tie.awayGoals] : [tie.awayGoals, tie.homeGoals];

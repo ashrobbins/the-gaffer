@@ -51,12 +51,12 @@ function contractsTable(game: Game, club: Club): string {
   const rows = squad(game, club)
     .sort((a, b) => a.contractGames - b.contractGames)
     .map(
-      (p) => `<tr class="row" data-c="${p.id}"><td class="dim">${p.position}</td><td>${esc(p.firstName[0] as string)}.${esc(p.lastName)}</td><td class="n ${p.contractGames <= 10 ? 'red' : ''}">${p.contractGames}${p.contractGames <= 10 ? ' !' : ''}</td><td class="n">${num(p.wage)}</td><td>${pips(p.happiness, p.happiness < 3)}</td><td>${trend(p.form - 3)}${p.form}/5</td></tr>`,
+      (p) => `<tr class="row" data-c="${p.id}"><td class="dim hide-xs">${p.position}</td><td>${esc(p.firstName[0] as string)}.${esc(p.lastName)}</td><td class="n ${p.contractGames <= 10 ? 'red' : ''}">${p.contractGames}${p.contractGames <= 10 ? ' !' : ''}</td><td class="n">${num(p.wage)}</td><td>${pips(p.happiness, p.happiness < 3)}</td><td>${trend(p.form - 3)}${p.form}/5</td></tr>`,
     )
     .join('');
   return `<div class="box"><h2>Contracts <small>sorted by games left</small></h2>
     <div class="note" style="margin-bottom:12px">Tap a player to offer a new deal.</div><div class="tw"><table>
-    <thead><tr><th>Pos</th><th>Name</th><th class="n">Games left</th><th class="n">Wage / wk</th><th>Happiness</th><th>Form</th></tr></thead>
+    <thead><tr><th class="hide-xs">Pos</th><th>Name</th><th class="n">Games left</th><th class="n">Wage / wk</th><th>Happiness</th><th>Form</th></tr></thead>
     <tbody>${rows}</tbody></table></div></div>`;
 }
 

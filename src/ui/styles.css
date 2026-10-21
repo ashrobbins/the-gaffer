@@ -175,7 +175,8 @@ body:has(#sheet:not([hidden])){overflow:hidden}
 .banner{background:#b3231d;border:3px solid #000;box-shadow:5px 5px 0 #000;color:var(--gold);font-family:var(--f-d);font-size:clamp(9px,1.9vw,13px);line-height:1.7;text-align:center;padding:14px 14px;min-height:64px;display:grid;place-items:center;text-transform:uppercase;text-shadow:3px 3px 0 #000}
 .scr{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;font-size:8px;line-height:1.9;color:var(--text)}
 .scr:empty{display:none}.scr .r{text-align:right}
-.scr .rt{margin:0 0 0 8px}
+.scr .rt{margin:0 0 0 8px;flex:none}
+.scr>div>div{display:flex;align-items:center}.scr .r>div{justify-content:flex-end}
 .banner.yel{background:#c9a800;color:#1a1300;text-shadow:none}
 .banner.red{background:#8a0f0f;animation:flashr .5s steps(2) 4}
 @keyframes flashr{50%{background:#e53935;color:#fff}}
@@ -242,3 +243,7 @@ tr.champ td{background:var(--gold);color:#1a1300;border-bottom-color:#b8860b}tr.
 
 /* A shirt sits in the middle of its team's column. */
 .fixture-team svg.px{margin-inline:auto}
+
+@media(max-width:520px){th,td{padding-inline:5px}.nav{gap:4px;padding-inline:8px}.nav button{flex:1 1 auto;padding:10px 4px;font-size:7px;letter-spacing:0}}
+#full-time .stat span:last-child{white-space:nowrap;text-align:right}
+@media(max-width:360px){.hide-xs{display:none}}
