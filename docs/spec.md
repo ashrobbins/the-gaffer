@@ -76,3 +76,17 @@ Retro pixel-art football management game. Mobile first. The visual reference is 
 - At season end, three clubs move between each pair of neighbouring divisions: the bottom three go down, and 1st, 2nd and the play-off winner go up. Divisions stay at 20.
 - The user's club gains a sponsor slot on promotion (maximum four) and keeps its slots if relegated.
 - Honours (league titles, cup wins) are recorded in `world.honours` for the trophy cabinet.
+
+## Game flow (screens)
+- Starting a new game shows only the New Game screen. There is no navigation yet.
+- Pressing "Create club" removes the New Game screen for good and shows the normal navigation: HQ, Team, Season, Transfers, Club.
+- Match Day is never in the navigation. It is only reached from the "Go to match" button on HQ.
+- Reset: a subtle "Reset game" option at the bottom of the Club page deletes all saved data and returns to the New Game screen. It needs a confirmation step built into the page. The save layer must offer a single "delete everything" call.
+
+## Match engine notes
+- A match is stepped one minute at a time (`stepMinute`). It stops at half time until `startSecondHalf`, and stops after an injury until the injured player is replaced.
+- Team strength in a match comes from who is on the pitch, in which position (natural, adjacent or alien), how tired they are, and the play style. A formation changes the balance between attack, defence and control of the ball.
+- Substitutions: three per team, a forced injury replacement is always allowed, a substitute who is taken off cannot return. Pre-match changes and formation or position swaps are free.
+- Injury chance per player per minute rises with tiredness and sharply above 80%, and a little with age.
+- Calibration (matches between teams in one division): about 2.6 goals, 23 shots, 9 corners, 2.5 yellow cards, 0.1-0.2 red cards, 0.3 penalties and 0.2 injuries per match, home win about 42%, draw about 27%.
+- Key moments are events with data. `commentary()` turns them into the capital-letter text shown on screen.

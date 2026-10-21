@@ -77,3 +77,45 @@ export const CUP_ROUND_NAMES: readonly string[] = [
 export const CUP_ROUND_AFTER_MATCHDAY: readonly number[] = [3, 7, 11, 16, 22, 28, 35];
 /** Clubs playing in the preliminary round. The other 48 get a bye into Round 1. */
 export const CUP_PRELIM_CLUBS = 32;
+
+/** How a play style bends a team's attack, defence and control of the ball, and how hard its players work. */
+export const STYLE_EFFECT: Record<import('./matchTypes').PlayStyle, { att: number; def: number; ctrl: number; effort: number }> = {
+  'gung-ho': { att: 1.25, def: 0.8, ctrl: 1.05, effort: 1.2 },
+  attacking: { att: 1.12, def: 0.92, ctrl: 1.03, effort: 1.1 },
+  balanced: { att: 1, def: 1, ctrl: 1, effort: 1 },
+  defensive: { att: 0.9, def: 1.1, ctrl: 0.98, effort: 0.97 },
+  'park-the-bus': { att: 0.72, def: 1.28, ctrl: 0.9, effort: 0.92 },
+};
+
+/** Tuning for the match engine. */
+export const MATCH = {
+  minutes: 90,
+  halfTime: 45,
+  maxSubs: 3,
+  maxBench: 7,
+  /** Added to home attack and control. */
+  homeBoost: 1.07,
+  possessionExponent: 2.5,
+  /** Shots per minute for evenly matched sides with an even share of the ball. */
+  shotBase: 0.105,
+  shotAttackExponent: 0.9,
+  shotPossessionExponent: 0.7,
+  blockedChance: 0.14,
+  onTargetChance: 0.42,
+  goalGivenOnTarget: 0.31,
+  postGivenOffTarget: 0.08,
+  wideGivenOffTarget: 0.47,
+  cornerAfterSave: 0.12,
+  cornerAfterBlock: 0.2,
+  cornerHeaderChance: 0.2,
+  /** Corners won per minute from pressure alone, for evenly matched sides. */
+  cornerRate: 0.04,
+  foulRate: 0.245,
+  yellowChance: 0.11,
+  yellowChanceOnPenalty: 0.3,
+  straightRedChance: 0.002,
+  penaltyOnFoulChance: 0.015,
+  penaltyConversion: 0.78,
+  fatiguePerMinute: 0.42,
+  injuryPerPlayerMinute: 0.0001,
+};
