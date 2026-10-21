@@ -43,7 +43,7 @@ export function pitchHtml(game: Game, lineup: Lineup, kit: Kit): string {
         <span class="shw">${shirt(isKeeper ? goalkeeperKit(kit) : kit, 100)}${conditionIcons(p)}</span>
         ${fit.kind !== 'natural' ? `<i class="fit ${fit.kind === 'adjacent' ? 'adj' : 'alien'}" title="${fit.kind}">!</i>` : ''}
         ${lineup.captainId === id ? '<i class="cap">C</i>' : ''}
-        <span class="tag">${surname(p)}</span><span class="ov">${Math.round(p.ability * fit.multiplier)}</span></button>`;
+        <span class="tag">${surname(p)}</span><span class="ovr"><i class="posp ${positionGroup(p.position)}" title="Natural position">${p.position}</i><span class="ov">${Math.round(p.ability * fit.multiplier)}</span></span></button>`;
     })
     .join('');
   return `<div class="chips" style="margin-bottom:12px">${FORMATION_IDS.map(
@@ -55,7 +55,7 @@ export function pitchHtml(game: Game, lineup: Lineup, kit: Kit): string {
       <div class="ln" style="left:36%;right:36%;bottom:-2px;height:9%"></div>
       ${tokens}
     </div>
-    <div class="row2 note" style="justify-content:center;margin-top:12px"><span class="pill o">Tired 50%+</span><span class="pill r">Injury risk 80%+</span><span class="pill y">! Adjacent -14%</span><span class="pill r">! Alien -40%</span></div>`;
+    <div class="row2 note" style="justify-content:center;margin-top:12px"><span class="pill o">Tired 50%+</span><span class="pill r">Injury risk 80%+</span><span class="pill">Badge = natural position</span><span class="pill y">! Adjacent -14%</span><span class="pill r">! Alien -40%</span></div>`;
 }
 
 export const teamRatingText = (game: Game, lineup: Lineup): number => lineupRating(game.world, lineup);
