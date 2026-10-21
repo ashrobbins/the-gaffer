@@ -1,13 +1,13 @@
 import { offerRenewal, releasePlayer } from '../engine/contracts';
 import { repairLineup, setCaptain, setFormation, swapPositions, swapWithBench } from '../engine/lineup';
 import type { FormationId, PlayStyle } from '../engine/matchTypes';
-import type { NewClubOptions } from '../engine/types';
 import { createGame, withRng, type Game } from '../game';
 import type { GameStorage } from '../storage';
 import { esc, gbp } from './format';
+import type { Club, NewClubOptions, Player } from '../engine/types';
 import { renderClubScreen, type ClubScreenState, type ClubTab } from './screens/club';
 import { renderHq, userClub } from './screens/hq';
-import { renderComingSoon, renderMatchDay } from './screens/misc';
+import { renderMatchDay } from './screens/misc';
 import { mountNewGame } from './screens/newGame';
 import { crest } from './sprites';
 import { MatchController } from './match';
@@ -15,7 +15,10 @@ import { liveMatchHtml, planSheetHtml, preMatchHtml } from './screens/match';
 import { startSession } from '../play';
 import { MATCHES_PER_SEASON } from '../engine/config';
 import { attachLineupDnd, type LineupRef } from './dnd';
-import { contractDynamic, contractSheet, defaultOffer, playerSheet, type SheetState } from './sheets';
+import { bidSheet, contractDynamic, contractSheet, defaultOffer, playerSheet, saleCounterSheet, type SheetState } from './sheets';
+import { acceptCounter, completeSigning, makeOffer, startNegotiation, type OfferLevel } from '../engine/negotiation';
+import { acceptBid, counterBid, rejectBid } from '../engine/selling';
+import { initialTransferState, renderTransfers, type TransferFilter, type TransferScreenState, type TransferTab } from './screens/transfers';
 import { initialSeasonState, renderSeason, type SeasonScreenState, type SeasonView } from './screens/season';
 import { renderTeam, type TeamScreenState, type TeamTab } from './screens/team';
 
@@ -46,6 +49,7 @@ export class App {
   private club: ClubScreenState = { tab: 'stadium', confirmingReset: false };
   private team: TeamScreenState = { tab: 'tactics' };
   private seasonScreen: SeasonScreenState = initialSeasonState();
+  private transfers: TransferScreenState = initialTransferState();
   private sheet: SheetState | null = null;
   private match: MatchController | null = null;
   private saveFailed = false;
@@ -97,6 +101,7 @@ export class App {
     this.club = { tab: 'stadium', confirmingReset: false };
     this.team = { tab: 'tactics' };
     this.seasonScreen = initialSeasonState();
+    this.transfers = initialTransferState();
     this.sheet = null;
     await this.persist();
     this.render();
@@ -191,7 +196,14 @@ export class App {
       return;
     }
     const club = userClub(game);
-    body.innerHTML = this.sheet.kind === 'player' ? playerSheet(game, club, this.sheet.playerId) : contractSheet(game, club, this.sheet);
+    body.innerHTML =
+      this.sheet.kind === 'player'
+        ? playerSheet(game, club, this.sheet.playerId)
+        : this.sheet.kind === 'bid'
+          ? bidSheet(game, club, this.sheet)
+          : this.sheet.kind === 'sale-counter'
+            ? saleCounterSheet(game, this.sheet)
+            : contractSheet(game, club, this.sheet);
     host.hidden = false;
     if (toTop) body.scrollTop = 0;
   }
@@ -275,6 +287,7 @@ export class App {
       this.render();
       return true;
     }
+    if (await this.onTransferClick(target)) return true;
     const seasonView = target.closest<HTMLElement>('[data-season-view]');
     if (seasonView) {
       this.seasonScreen.view = seasonView.dataset.seasonView as SeasonView;
@@ -365,6 +378,129 @@ export class App {
       this.render();
       this.renderSheet(false);
       return true;
+    }
+    return false;
+  }
+
+  /** Clicks on the Transfers screen and its negotiation and counter-offer sheets. */
+  private async onTransferClick(target: HTMLElement): Promise<boolean> {
+    const game = this.game;
+    if (!game) return false;
+    const tab = target.closest<HTMLElement>('[data-tr-tab]');
+    if (tab) {
+      this.transfers.tab = tab.dataset.trTab as TransferTab;
+      this.transfers.notice = null;
+      this.render();
+      return true;
+    }
+    const filter = target.closest<HTMLElement>('[data-tr-filter]');
+    if (filter) {
+      this.transfers.filter = filter.dataset.trFilter as TransferFilter;
+      this.render();
+      return true;
+    }
+    const bid = target.closest<HTMLButtonElement>('[data-bid]');
+    if (bid) {
+      if (!bid.disabled) {
+        this.sheet = { kind: 'bid', neg: startNegotiation(game.world, game.date, bid.dataset.bid as string), message: null, signed: false };
+        this.renderSheet(true);
+      }
+      return true;
+    }
+    const accept = target.closest<HTMLButtonElement>('[data-sale-accept]');
+    if (accept) {
+      if (accept.disabled) return true;
+      const b = game.world.incomingBids.find((x) => x.id === accept.dataset.saleAccept);
+      if (!b) return true;
+      const p = game.world.players[b.playerId] as Player;
+      const buyer = game.world.clubs[b.buyerClubId] as Club;
+      const gained = withRng(game, (rng) => acceptBid(game.world, game.date, b.id, rng));
+      this.transfers.notice = `Sold ${p.firstName} ${p.lastName} to ${buyer.name} for ${gbp(gained)}.`;
+      this.fixLineup();
+      await this.persist();
+      this.render();
+      return true;
+    }
+    const counter = target.closest<HTMLButtonElement>('[data-sale-counter]');
+    if (counter) {
+      if (!counter.disabled) {
+        this.sheet = { kind: 'sale-counter', bidId: counter.dataset.saleCounter as string, message: null };
+        this.renderSheet(true);
+      }
+      return true;
+    }
+    const reject = target.closest<HTMLElement>('[data-sale-reject]');
+    if (reject) {
+      rejectBid(game.world, reject.dataset.saleReject as string);
+      this.transfers.notice = null;
+      await this.persist();
+      this.render();
+      return true;
+    }
+
+    const sheet = this.sheet;
+    if (sheet?.kind === 'bid') {
+      const offer = target.closest<HTMLButtonElement>('[data-neg-offer]');
+      if (offer) {
+        if (offer.disabled) return true;
+        const neg = sheet.neg;
+        const phase = neg.phase;
+        const seller = neg.sellerClubId ? (game.world.clubs[neg.sellerClubId] as Club).name : 'The player';
+        const result = withRng(game, (rng) => makeOffer(game.world, neg, game.date, offer.dataset.negOffer as OfferLevel, rng));
+        const per = phase === 'wage' ? ' a week' : '';
+        const who = phase === 'fee' ? seller : (game.world.players[neg.playerId] as Player).lastName;
+        if (result.result === 'accepted') {
+          sheet.message = { ok: true, text: phase === 'fee' ? `${seller} accepted ${gbp(result.amount)}. Now agree wages with the player.` : `He accepted ${gbp(result.amount)} a week.` };
+        } else if (result.result === 'rejected') {
+          sheet.message = { ok: false, text: `${who} rejected ${gbp(result.amount)}${per}. They would do it for ${gbp(result.counter)}${per}.` };
+        } else {
+          sheet.message = null;
+          await this.persist();
+          this.render();
+        }
+        this.renderSheet(true);
+        return true;
+      }
+      if (target.closest('[data-neg-counter]')) {
+        const neg = sheet.neg;
+        const phase = neg.phase;
+        const amount = acceptCounter(game.world, neg);
+        sheet.message = { ok: true, text: phase === 'fee' ? `Fee agreed at ${gbp(amount)}. Now agree wages with the player.` : `Wage agreed at ${gbp(amount)} a week.` };
+        this.renderSheet(true);
+        return true;
+      }
+      if (target.closest('[data-neg-finish]')) {
+        withRng(game, (rng) => completeSigning(game.world, sheet.neg, game.date, rng));
+        sheet.signed = true;
+        this.transfers.notice = null;
+        this.fixLineup();
+        await this.persist();
+        this.render();
+        this.renderSheet(true);
+        return true;
+      }
+    }
+    if (sheet?.kind === 'sale-counter') {
+      const ask = target.closest<HTMLElement>('[data-sale-ask]');
+      if (ask) {
+        const b = game.world.incomingBids.find((x) => x.id === sheet.bidId);
+        if (!b) return true;
+        const p = game.world.players[b.playerId] as Player;
+        const buyer = game.world.clubs[b.buyerClubId] as Club;
+        const fee = Number(ask.dataset.saleAsk);
+        const result = withRng(game, (rng) => counterBid(game.world, game.date, b.id, fee, rng));
+        if (result.result === 'accepted') {
+          sheet.message = { ok: true, text: `${buyer.name} agreed. ${p.firstName} ${p.lastName} leaves for ${gbp(fee)}.` };
+          this.transfers.notice = `Sold ${p.firstName} ${p.lastName} to ${buyer.name} for ${gbp(fee)}.`;
+          this.fixLineup();
+        } else {
+          sheet.message = { ok: false, text: result.withdrawn ? `${buyer.name} refused again and walked away.` : `${buyer.name} refused. Their offer still stands.` };
+        }
+        await this.persist();
+        this.render();
+        this.renderSheet(true);
+        return true;
+      }
     }
     return false;
   }
@@ -468,7 +604,7 @@ export class App {
       case 'season':
         return renderSeason(game, this.seasonScreen);
       case 'transfers':
-        return renderComingSoon('Transfers', ['The market, with the window dates', 'Fee and wage negotiations', 'Offers for your players']);
+        return renderTransfers(game, userClub(game), this.transfers);
       case 'club':
         return renderClubScreen(this.club);
       case 'match':

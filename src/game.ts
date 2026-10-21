@@ -1,5 +1,6 @@
 import { matchdayDate } from './engine/calendar';
 import { createCup } from './engine/cup';
+import { refreshMarket } from './engine/market';
 import { createLineup, type Lineup } from './engine/lineup';
 import { createRng, type Rng } from './engine/rng';
 import { createSeason } from './engine/season';
@@ -31,6 +32,7 @@ export function createGame(club: NewClubOptions, seed: number, now: Date = new D
   const world = generateWorld(seed, club);
   const season = createSeason(world, rng, START_YEAR);
   const cup = createCup(world, rng, START_YEAR);
+  refreshMarket(world, rng);
   return {
     version: GAME_VERSION,
     world,

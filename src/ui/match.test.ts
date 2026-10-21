@@ -297,6 +297,8 @@ describe('half time', () => {
 describe('injuries', () => {
   it('stops the match for an injured player and will not resume until he is replaced', async () => {
     for (const id of game().world.clubs[game().world.userClubId]!.playerIds) game().world.players[id]!.fatigue = 98;
+    // A seed on which a worn-out player does get hurt, so the test does not depend on luck.
+    game().rngState = 11;
     await toPreMatch();
     await click('[data-act="kick-off"]');
     let guard = 0;

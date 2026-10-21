@@ -1,13 +1,3 @@
-import { esc } from '../format';
-
-/** A screen that is planned but not built yet. */
-export function renderComingSoon(title: string, items: readonly string[]): string {
-  return `<div class="box"><h2>${esc(title)} <small>coming soon</small></h2>
-    <p class="note" style="margin-bottom:10px">This screen is still being built. It will have:</p>
-    ${items.map((i) => `<div class="stat"><span>${esc(i)}</span></div>`).join('')}
-  </div>`;
-}
-
 /** Match day. It is never in the navigation: the only way here is the "Go to match" button on HQ. */
 export function renderMatchDay(): string {
   return `<div class="box"><h2>Match day <small>coming soon</small></h2>

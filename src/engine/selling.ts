@@ -89,6 +89,12 @@ export function rejectBid(world: World, bidId: string): void {
   world.incomingBids = world.incomingBids.filter((b) => b.id !== bidId);
 }
 
+/** The chance a club agrees to pay `fee` for a player it offered `bid.fee` for: 0 to 1. Asking for half as much again is never accepted. */
+export function counterChance(bid: TransferBid, fee: number): number {
+  const ratio = fee / bid.fee;
+  return ratio > 1.5 ? 0 : Math.min(0.9, Math.max(0.05, 0.85 - (ratio - 1) * 2.5));
+}
+
 export type CounterResult = { result: 'accepted'; fee: number } | { result: 'refused'; withdrawn: boolean };
 
 /**
@@ -103,9 +109,7 @@ export function counterBid(world: World, date: string, bidId: string, fee: numbe
     bid.counters++;
     return refuse(world, bid);
   }
-  const ratio = fee / bid.fee;
-  const chance = ratio > 1.5 ? 0 : Math.min(0.9, Math.max(0.05, 0.85 - (ratio - 1) * 2.5));
-  if (rng.chance(chance)) {
+  if (rng.chance(counterChance(bid, fee))) {
     bid.fee = fee;
     acceptBid(world, date, bidId, rng);
     return { result: 'accepted', fee };
