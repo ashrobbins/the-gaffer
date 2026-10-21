@@ -1,0 +1,97 @@
+import { matchdayDate } from '../../engine/calendar';
+import { CUP_NAME, CUP_ROUND_AFTER_MATCHDAY, DIVISION_NAMES, MATCHES_PER_SEASON } from '../../engine/config';
+import { nextCupRound, userTie } from '../../engine/cup';
+import { sponsorIncome, weeklyProjection } from '../../engine/finance';
+import { tableFor } from '../../engine/season';
+import type { Club, Fixture } from '../../engine/types';
+import { START_YEAR, type Game } from '../../game';
+import { esc, gbp, num, ordinal, shortDate } from '../format';
+import { shirt } from '../sprites';
+
+export const userClub = (game: Game): Club => game.world.clubs[game.world.userClubId] as Club;
+
+/** The user's league fixtures from the next matchday on. */
+export function upcomingFixtures(game: Game, limit = 3): Fixture[] {
+  const me = game.world.userClubId;
+  return game.season.fixtures
+    .filter((f) => f.round >= game.season.round && (f.homeId === me || f.awayId === me))
+    .sort((a, b) => a.round - b.round)
+    .slice(0, limit);
+}
+
+function fixtureLine(game: Game, f: Fixture): { date: string; opponent: Club; home: boolean } {
+  const me = game.world.userClubId;
+  const home = f.homeId === me;
+  return { date: matchdayDate(START_YEAR, f.round), opponent: game.world.clubs[home ? f.awayId : f.homeId] as Club, home };
+}
+
+/** The cup tie the user is due to play next, with its date (the Wednesday after the league matchday), or null. */
+function nextCupLine(game: Game): { date: string; round: string; opponent: Club | null; home: boolean } | null {
+  const i = nextCupRound(game.cup);
+  if (i === null) return null;
+  const round = game.cup.rounds[i]!;
+  const tie = userTie(game.world, round);
+  if (!tie) return null;
+  const home = tie.homeId === game.world.userClubId;
+  const after = CUP_ROUND_AFTER_MATCHDAY[i] as number;
+  const saturday = matchdayDate(START_YEAR, after - 1);
+  const date = new Date(Date.UTC(+saturday.slice(0, 4), +saturday.slice(5, 7) - 1, +saturday.slice(8, 10) + 4)).toISOString().slice(0, 10);
+  return { date, round: round.name, opponent: game.world.clubs[home ? tie.awayId : tie.homeId] ?? null, home };
+}
+
+/** Cup ties and league matches after the next one, in date order. */
+function comingUp(game: Game, later: Fixture[], cup: ReturnType<typeof nextCupLine>): string {
+  const rows: { date: string; html: string }[] = later.map((f) => {
+    const l = fixtureLine(game, f);
+    return { date: l.date, html: `<div class="cu"><span class="dim">${shortDate(l.date)}</span><span class="pill">League</span><span>${esc(l.opponent.name)} (${l.home ? 'H' : 'A'})</span></div>` };
+  });
+  if (cup) {
+    rows.push({ date: cup.date, html: `<div class="cu"><span class="dim">${shortDate(cup.date)}</span><span class="pill y">Cup</span><span>${esc(cup.round)} ${cup.home ? 'v' : 'at'} ${esc(cup.opponent?.name ?? '')}</span></div>` });
+  }
+  return rows.sort((a, b) => a.date.localeCompare(b.date)).map((r) => r.html).join('');
+}
+
+export function renderHq(game: Game): string {
+  const club = userClub(game);
+  const [next, ...later] = upcomingFixtures(game, 3);
+  const fixture = next ? fixtureLine(game, next) : null;
+  const table = tableFor(game.world, game.season, club.division);
+  const position = table.findIndex((r) => r.clubId === club.id) + 1;
+  const row = table[position - 1];
+  const money = weeklyProjection(game.world, club.id);
+  const cup = nextCupLine(game);
+
+  const fixtureBox = fixture
+    ? `<div class="box"><h2>Next fixture <small>Matchday ${game.season.round + 1} · ${shortDate(fixture.date)}</small></h2>
+        <div class="grid" style="grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;text-align:center">
+          <div>${shirt(fixture.home ? club.kit : fixture.opponent.kit, 76)}<div style="margin-top:8px">${esc(fixture.home ? club.name : fixture.opponent.name)}</div><div class="mini">${fixture.home ? 'Home' : 'Away'}</div></div>
+          <div class="big">V</div>
+          <div>${shirt(fixture.home ? fixture.opponent.kit : club.kit, 76)}<div style="margin-top:8px">${esc(fixture.home ? fixture.opponent.name : club.name)}</div><div class="mini">${fixture.home ? 'Away' : 'Home'}</div></div>
+        </div>
+        <p class="note center" style="margin-top:12px">Played at ${esc((fixture.home ? club : fixture.opponent).stadium.name)}</p>
+        <div class="row2" style="margin-top:16px"><button class="btn" data-act="go-match" type="button">Go to match</button></div>
+        <div class="lab" style="margin-top:18px">Coming up</div>
+        ${comingUp(game, later, cup)}
+      </div>`
+    : `<div class="box"><h2>Season over</h2><p class="note">There are no more league matches this season.</p></div>`;
+
+  return `<div class="grid g21">
+    <div class="grid" style="align-content:start;gap:18px">${fixtureBox}</div>
+    <div class="grid" style="align-content:start;gap:18px">
+      <div class="box"><h2>Standing <small>${DIVISION_NAMES[club.division]}</small></h2>
+        <div class="big">${row && row.played > 0 ? `${ordinal(position)}<span style="font-size:9px" class="dim"> of 20</span>` : 'Day one'}</div>
+        <div class="stat" style="margin-top:8px"><span>Played</span><span>${row?.played ?? 0} of ${MATCHES_PER_SEASON}</span></div>
+        <div class="stat"><span>Points</span><span class="gold">${row?.points ?? 0}</span></div>
+        <div class="stat"><span>Promotion</span><span class="grn">Top 2, play-offs 3-4</span></div>
+      </div>
+      <div class="box ${money.surplus < 0 ? 'warn' : ''}"><h2>Money</h2>
+        <div class="stat"><span>Cash</span><span class="gold">${gbp(club.cash)}</span></div>
+        <div class="stat"><span>Sponsors per match</span><span class="grn">+${num(sponsorIncome(club))}</span></div>
+        <div class="stat"><span>Wages and upkeep a week</span><span class="red">-${num(money.outgoings)}</span></div>
+        <div class="stat"><span>Average income per match</span><span>${num(money.averageIncome)}</span></div>
+        <div class="stat"><span class="gold">Weekly surplus</span><span class="${money.surplus >= 0 ? 'grn' : 'red'}">${money.surplus >= 0 ? '+' : ''}${num(money.surplus)}</span></div>
+        <p class="note" style="margin-top:8px">Gate money only comes in on home matches. ${esc(CUP_NAME)} ties pay the home side a gate too.</p>
+      </div>
+    </div>
+  </div>`;
+}
