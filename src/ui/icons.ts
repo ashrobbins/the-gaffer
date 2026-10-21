@@ -31,3 +31,7 @@ export const surname = (p: Pick<Player, 'lastName'>): string => p.lastName.toUpp
 export type PositionGroup = 'GK' | 'DEF' | 'MID' | 'ATT';
 export const positionGroup = (pos: string): PositionGroup =>
   pos === 'GK' ? 'GK' : ['LB', 'CB', 'RB'].includes(pos) ? 'DEF' : ['LW', 'RW', 'ST'].includes(pos) ? 'ATT' : 'MID';
+
+/** The last results as small coloured letters, oldest first. */
+export const form5 = (results: string): string =>
+  `<span class="fm">${[...results].map((c) => `<i class="${c}">${c}</i>`).join('')}</span>`;

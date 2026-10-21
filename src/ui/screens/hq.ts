@@ -5,6 +5,7 @@ import { sponsorIncome, weeklyProjection } from '../../engine/finance';
 import { tableFor } from '../../engine/season';
 import type { Club, Fixture } from '../../engine/types';
 import { START_YEAR, type Game } from '../../game';
+import { nextMatch } from '../../play';
 import { esc, gbp, num, ordinal, shortDate } from '../format';
 import { shirt } from '../sprites';
 
@@ -53,27 +54,32 @@ function comingUp(game: Game, later: Fixture[], cup: ReturnType<typeof nextCupLi
 
 export function renderHq(game: Game): string {
   const club = userClub(game);
-  const [next, ...later] = upcomingFixtures(game, 3);
-  const fixture = next ? fixtureLine(game, next) : null;
+  const next = nextMatch(game);
   const table = tableFor(game.world, game.season, club.division);
   const position = table.findIndex((r) => r.clubId === club.id) + 1;
   const row = table[position - 1];
   const money = weeklyProjection(game.world, club.id);
-  const cup = nextCupLine(game);
+  const later = upcomingFixtures(game, 4).slice(next?.kind === 'league' ? 1 : 0, next?.kind === 'league' ? 4 : 3);
+  const cup = next?.kind === 'cup' ? null : nextCupLine(game);
 
-  const fixtureBox = fixture
-    ? `<div class="box"><h2>Next fixture <small>Matchday ${game.season.round + 1} · ${shortDate(fixture.date)}</small></h2>
+  let fixtureBox: string;
+  if (next) {
+    const home = game.world.clubs[next.homeId] as Club;
+    const away = game.world.clubs[next.awayId] as Club;
+    fixtureBox = `<div class="box"><h2>Next fixture <small>${esc(next.label)} · ${shortDate(next.date)}</small></h2>
         <div class="grid" style="grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;text-align:center">
-          <div class="fixture-team">${shirt(fixture.home ? club.kit : fixture.opponent.kit, 76)}<div style="margin-top:8px">${esc(fixture.home ? club.name : fixture.opponent.name)}</div><div class="mini">${fixture.home ? 'Home' : 'Away'}</div></div>
+          <div class="fixture-team">${shirt(home.kit, 76)}<div style="margin-top:8px">${esc(home.name)}</div><div class="mini">Home</div></div>
           <div class="big">V</div>
-          <div class="fixture-team">${shirt(fixture.home ? fixture.opponent.kit : club.kit, 76)}<div style="margin-top:8px">${esc(fixture.home ? fixture.opponent.name : club.name)}</div><div class="mini">${fixture.home ? 'Away' : 'Home'}</div></div>
+          <div class="fixture-team">${shirt(away.kit, 76)}<div style="margin-top:8px">${esc(away.name)}</div><div class="mini">Away</div></div>
         </div>
-        <p class="note center" style="margin-top:12px">Played at ${esc((fixture.home ? club : fixture.opponent).stadium.name)}</p>
+        <p class="note center" style="margin-top:12px">Played at ${esc(home.stadium.name)}</p>
         <div class="row2" style="margin-top:16px"><button class="btn" data-act="go-match" type="button">Go to match</button></div>
         <div class="lab" style="margin-top:18px">Coming up</div>
         ${comingUp(game, later, cup)}
-      </div>`
-    : `<div class="box"><h2>Season over</h2><p class="note">There are no more league matches this season.</p></div>`;
+      </div>`;
+  } else {
+    fixtureBox = `<div class="box"><h2>Season over</h2><p class="note">There are no more league matches this season.</p></div>`;
+  }
 
   return `<div class="grid g21">
     <div class="grid" style="align-content:start;gap:18px">${fixtureBox}</div>

@@ -1,6 +1,6 @@
 import { offerRenewal, releasePlayer } from '../engine/contracts';
 import { repairLineup, setCaptain, setFormation, swapPositions, swapWithBench } from '../engine/lineup';
-import type { FormationId } from '../engine/matchTypes';
+import type { FormationId, PlayStyle } from '../engine/matchTypes';
 import type { NewClubOptions } from '../engine/types';
 import { createGame, withRng, type Game } from '../game';
 import type { GameStorage } from '../storage';
@@ -10,6 +10,9 @@ import { renderHq, userClub } from './screens/hq';
 import { renderComingSoon, renderMatchDay } from './screens/misc';
 import { mountNewGame } from './screens/newGame';
 import { crest } from './sprites';
+import { MatchController } from './match';
+import { liveMatchHtml, planSheetHtml, preMatchHtml } from './screens/match';
+import { startSession } from '../play';
 import { MATCHES_PER_SEASON } from '../engine/config';
 import { attachLineupDnd, type LineupRef } from './dnd';
 import { contractDynamic, contractSheet, defaultOffer, playerSheet, type SheetState } from './sheets';
@@ -42,6 +45,7 @@ export class App {
   private club: ClubScreenState = { tab: 'stadium', confirmingReset: false };
   private team: TeamScreenState = { tab: 'tactics' };
   private sheet: SheetState | null = null;
+  private match: MatchController | null = null;
   private saveFailed = false;
 
   constructor(
@@ -53,11 +57,13 @@ export class App {
     root.addEventListener('click', (e) => void this.onClick(e));
     root.addEventListener('input', (e) => this.onInput(e));
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && this.sheet) this.closeSheet();
+      if (e.key !== 'Escape') return;
+      if (this.match?.planOpen) this.match.closePlan();
+      else if (this.sheet) this.closeSheet();
     });
     attachLineupDnd(root, {
-      onTap: (ref) => this.openPlayer(this.playerAt(ref)),
-      onSwap: (from, to) => void this.swap(from, to),
+      onTap: (ref) => this.onTap(ref),
+      onSwap: (from, to) => void this.onSwap(from, to),
     });
   }
 
@@ -104,6 +110,31 @@ export class App {
     return ref.kind === 'slot' ? lineup?.xi[ref.index] : lineup?.bench[ref.index];
   }
 
+  private onTap(ref: LineupRef): void {
+    const m = this.match;
+    if (m?.planOpen) return;
+    if (m && this.screen === 'match' && m.phase === 'live') return;
+    if (m && this.screen === 'match' && m.phase === 'pre') {
+      this.openPlayer(this.playerAt(ref));
+      return;
+    }
+    this.openPlayer(this.playerAt(ref));
+  }
+
+  private async onSwap(from: LineupRef, to: LineupRef): Promise<void> {
+    const m = this.match;
+    if (m?.planOpen) {
+      m.liveSwap(from, to);
+      return;
+    }
+    if (m && this.screen === 'match' && m.phase === 'pre') {
+      await m.preMatchSwap(from, to);
+      return;
+    }
+    if (m && this.screen === 'match') return;
+    await this.swap(from, to);
+  }
+
   private async swap(from: LineupRef, to: LineupRef): Promise<void> {
     const game = this.game;
     if (!game) return;
@@ -142,6 +173,16 @@ export class App {
     const host = this.root.querySelector<HTMLElement>('#sheet') as HTMLElement;
     const body = host.querySelector<HTMLElement>('.sh') as HTMLElement;
     const game = this.game;
+    const m = this.match;
+    if (game && m?.planOpen) {
+      body.innerHTML = planSheetHtml(game, m.session, m);
+      host.hidden = false;
+      if (m.planJustOpened) {
+        body.scrollTop = 0;
+        m.planJustOpened = false;
+      }
+      return;
+    }
     if (!this.sheet || !game) {
       host.hidden = true;
       return;
@@ -177,6 +218,8 @@ export class App {
     const target = e.target as HTMLElement;
     const nav = target.closest<HTMLElement>('[data-nav]');
     if (nav && this.game) {
+      if (this.match?.phase === 'live') this.match.suspend();
+      if (this.match?.phase === 'full') this.match = null;
       this.screen = nav.dataset.nav as Screen;
       this.club.confirmingReset = false;
       this.render();
@@ -210,6 +253,7 @@ export class App {
         this.screen = 'hq';
         this.club = { tab: 'stadium', confirmingReset: false };
         this.sheet = null;
+        this.match = null;
         break;
       default:
         return;
@@ -221,6 +265,7 @@ export class App {
   private async onGameClick(target: HTMLElement): Promise<boolean> {
     const game = this.game;
     if (!game) return false;
+    if (await this.onMatchClick(target)) return true;
     const teamTab = target.closest<HTMLElement>('[data-team-tab]');
     if (teamTab) {
       this.team.tab = teamTab.dataset.teamTab as TeamTab;
@@ -303,6 +348,79 @@ export class App {
     return false;
   }
 
+  /** Clicks on the match screens and the change-your-plan sheet. */
+  private async onMatchClick(target: HTMLElement): Promise<boolean> {
+    const m = this.match;
+    const game = this.game;
+    if (!game) return false;
+    const act = target.closest<HTMLElement>('[data-act]')?.dataset.act;
+    if (act === 'go-match') {
+      if (!m || m.phase === 'full') {
+        const session = startSession(game);
+        if (!session) return true;
+        this.match = new MatchController(game, session, { render: () => this.renderAll(), persist: () => this.persist() });
+      }
+      this.screen = 'match';
+      this.render();
+      return true;
+    }
+    if (!m) return false;
+    switch (act) {
+      case 'kick-off':
+        m.kickOff();
+        return true;
+      case 'pause':
+        m.pause();
+        return true;
+      case 'resume':
+        m.resume();
+        return true;
+      case 'plan':
+        m.openPlan();
+        return true;
+      case 'continue':
+        this.match = null;
+        this.screen = 'hq';
+        this.render();
+        return true;
+    }
+    if (m.planOpen) {
+      if (target.closest('[data-close]')) {
+        m.closePlan();
+        return true;
+      }
+      const style = target.closest<HTMLElement>('[data-style]');
+      if (style) {
+        m.liveSetStyle(style.dataset.style as PlayStyle);
+        return true;
+      }
+      const formation = target.closest<HTMLElement>('[data-formation]');
+      if (formation) {
+        m.liveFormation(formation.dataset.formation as FormationId);
+        return true;
+      }
+      return target.closest('[data-slot],[data-bn]') !== null;
+    }
+    if (this.screen === 'match' && m.phase === 'pre') {
+      const style = target.closest<HTMLElement>('[data-style]');
+      if (style) {
+        await m.preMatchStyle(style.dataset.style as PlayStyle);
+        return true;
+      }
+      const formation = target.closest<HTMLElement>('[data-formation]');
+      if (formation) {
+        await m.preMatchFormation(formation.dataset.formation as FormationId);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** Redraws the page and whichever sheet is showing. */
+  private renderAll(): void {
+    this.render();
+  }
+
   private header(): string {
     const game = this.game;
     if (!game) {
@@ -333,7 +451,8 @@ export class App {
       case 'club':
         return renderClubScreen(this.club);
       case 'match':
-        return renderMatchDay();
+        if (!this.match) return renderMatchDay();
+        return this.match.phase === 'pre' ? preMatchHtml(game, this.match.session) : liveMatchHtml(game, this.match.session, this.match);
     }
   }
 
@@ -344,6 +463,7 @@ export class App {
       <div class="frame"><div class="inner" id="screen">${this.game ? this.body() : ''}</div></div>
       ${this.saveFailed ? '<p class="foot" role="status">This device would not let the game be saved. Your progress will be lost when you close the page.</p>' : ''}
     </div>`;
+    this.renderSheet(false);
     if (!this.game) {
       mountNewGame(shell.querySelector<HTMLElement>('#screen') as HTMLElement, (options) => void this.createClub(options));
     }

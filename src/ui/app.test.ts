@@ -258,15 +258,15 @@ describe('the screens', () => {
     }
   });
 
-  it('reaches Match day only through the Go to match button on HQ, and can come back', async () => {
+  it('reaches Match day only through the Go to match button on HQ, and can come back through the navigation', async () => {
     const app = await boot();
     await createDefaultClub(app);
     await click('[data-act="go-match"]');
     expect(app.currentScreen).toBe('match');
-    expect(q('#screen').textContent).toContain('Match day');
+    expect(q('#screen').textContent).toContain('PRE-MATCH');
     expect(root.querySelector('.nav [aria-current="true"]')).toBeNull();
     expect(navLabels()).toEqual(['HQ', 'Team', 'Season', 'Transfers', 'Club']);
-    await click('[data-act="back-to-hq"]');
+    await click('[data-nav="hq"]');
     expect(app.currentScreen).toBe('hq');
   });
 
