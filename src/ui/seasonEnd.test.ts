@@ -13,6 +13,7 @@ const click = async (sel: string): Promise<void> => {
   q(sel).click();
   await flush();
 };
+const all = (sel: string): HTMLElement[] => [...root.querySelectorAll<HTMLElement>(sel)];
 const text = (): string => q('#screen').textContent ?? '';
 const game = () => app.current!;
 
@@ -37,6 +38,7 @@ beforeEach(async () => {
 });
 afterEach(() => vi.useRealTimers());
 
+
 describe('the end of the season on HQ', () => {
   it('says the season is over and offers to finish it', () => {
     expect(text()).toContain('Season over');
@@ -48,7 +50,7 @@ describe('the end of the season on HQ', () => {
   it('shows the review of the season, then the close season with Advance a week', async () => {
     await click('[data-act="close-season"]');
     expect(text()).toContain('review');
-    expect(text()).toContain('Champions and movements');
+    expect(text()).toContain('Champions, promotions and relegations');
     expect(text()).toContain('Play-off finals');
     expect(text()).toMatch(/PROMOTED|RELEGATED|Staying in/);
     expect(text()).toContain('Close season');
@@ -93,6 +95,45 @@ describe('the end of the season on HQ', () => {
     expect(text()).toContain('Preliminary round');
   });
 
+  it('celebrates a promotion before showing the review, with the new division and a way to continue', async () => {
+    // Make the user finish first in their table.
+    const me = game().world.userClubId;
+    for (const r of game().season.results) {
+      if (r.division === 3 && (r.homeId === me || r.awayId === me)) {
+        r.homeGoals = r.homeId === me ? 6 : 0;
+        r.awayGoals = r.awayId === me ? 6 : 0;
+      }
+    }
+    await click('[data-act="close-season"]');
+    expect(q('#celebrate').hidden).toBe(false);
+    expect(q('#celebrate').textContent).toContain('CHAMPIONS!');
+    expect(q('#celebrate').textContent).toContain('Division Four champions');
+    expect(q('#celebrate .cel.league .cel-trophy')).not.toBeNull();
+    expect(all('#celebrate .cf').length).toBeGreaterThan(30);
+    expect(all('#celebrate .fw').length).toBeGreaterThan(3);
+    await click('#celebrate [data-celebrate]');
+    expect(q('#celebrate').textContent).toContain('PROMOTED!');
+    expect(q('#celebrate').textContent).toContain('Welcome to Division Three');
+    expect(q('#celebrate .cel.promotion .arrows')).not.toBeNull();
+    expect(all('#celebrate .fw')).toHaveLength(0);
+    await click('#celebrate [data-celebrate]');
+    expect(q('#celebrate').hidden).toBe(true);
+    expect(text()).toContain('review');
+  });
+
+  it('shows no celebration when nothing was won and the club stays where it is', async () => {
+    // Make the user finish mid-table whatever happened.
+    const me = game().world.userClubId;
+    for (const r of game().season.results) {
+      if (r.division === 3 && (r.homeId === me || r.awayId === me)) {
+        r.homeGoals = r.homeId === me ? 0 : 1;
+        r.awayGoals = r.awayId === me ? 0 : 1;
+      }
+    }
+    await click('[data-act="close-season"]');
+    expect(q('#celebrate').hidden).toBe(true);
+  });
+
   it('saves the close season', async () => {
     await click('[data-act="close-season"]');
     const saved = await (app as unknown as { deps: { storage: { load(): Promise<{ phase: string; review: unknown }> } } }).deps.storage.load();
@@ -101,4 +142,3 @@ describe('the end of the season on HQ', () => {
   });
 });
 
-const all = (sel: string): HTMLElement[] => [...root.querySelectorAll<HTMLElement>(sel)];

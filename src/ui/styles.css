@@ -249,3 +249,42 @@ tr.champ td{background:var(--gold);color:#1a1300;border-bottom-color:#b8860b}tr.
 @media(max-width:360px){.hide-xs{display:none}}
 .spd{margin:8px 0}.spd .pill{cursor:pointer}
 .pk{display:grid;grid-template-columns:18px minmax(0,1fr) auto;gap:6px;padding:5px 0;border-bottom:1px dotted #26336a;font-size:8px;align-items:center}.pk b{font-weight:400}
+
+/* Celebrations */
+#celebrate{position:fixed;inset:0;z-index:60}#celebrate[hidden]{display:none}
+.cel{position:absolute;inset:0;overflow:hidden;display:grid;place-items:center;padding:24px;text-align:center;background:radial-gradient(circle at 50% 38%,#26357a 0,#0b1130 70%);animation:celin .35s steps(5)}
+.cel.league,.cel.cup{background:radial-gradient(circle at 50% 36%,#5a3d0a 0,#1a1330 55%,#070b1b 100%)}
+@keyframes celin{from{opacity:0;transform:scale(1.08)}}
+.cel-rays{position:absolute;left:50%;top:36%;width:220vmax;height:220vmax;transform:translate(-50%,-50%);background:repeating-conic-gradient(#ffc93322 0 7deg,transparent 7deg 18deg);animation:spin 18s linear infinite;pointer-events:none}
+.cel.promotion .cel-rays{background:repeating-conic-gradient(#29b6f61c 0 7deg,transparent 7deg 18deg)}
+@keyframes spin{to{transform:translate(-50%,-50%) rotate(360deg)}}
+.cf{position:absolute;top:-20px;display:block;animation:cfall linear infinite;pointer-events:none}
+@keyframes cfall{to{transform:translateY(110vh) rotate(360deg)}}
+.fw{position:absolute;width:8px;height:8px;color:#ffc933;opacity:0;animation:fwburst 2.7s steps(9) infinite;pointer-events:none;
+  box-shadow:0 -26px,0 26px,-26px 0,26px 0,-18px -18px,18px -18px,-18px 18px,18px 18px,0 -42px,0 42px,-42px 0,42px 0,-30px -30px,30px -30px,-30px 30px,30px 30px}
+@keyframes fwburst{0%{opacity:0;transform:scale(.1)}12%{opacity:1}70%{opacity:1;transform:scale(2.2)}100%{opacity:0;transform:scale(2.6)}}
+.cel-body{position:relative;z-index:2;display:grid;gap:12px;justify-items:center;max-width:420px}
+.cel-trophy{position:relative;width:160px;animation:bounce 1.1s steps(6) infinite;filter:drop-shadow(0 0 18px #ffc93399)}
+.cel-trophy svg{width:100%;height:auto;display:block}
+@keyframes bounce{50%{transform:translateY(-14px)}}
+.spark{position:absolute;width:10px;height:10px;background:#fffbe0;clip-path:polygon(50% 0,62% 38%,100% 50%,62% 62%,50% 100%,38% 62%,0 50%,38% 38%);animation:twinkle 1.2s steps(4) infinite}
+.spark.s1{left:-14px;top:12px}.spark.s2{right:-10px;top:40px;animation-delay:.4s}.spark.s3{left:20px;bottom:6px;animation-delay:.8s}
+@keyframes twinkle{50%{transform:scale(.2);opacity:.3}}
+.cel-shirt{position:relative;width:130px;animation:bounce 1.4s steps(6) infinite}.cel-shirt svg{width:100%;height:auto;display:block}
+.arrows{position:absolute;left:50%;top:-8px;transform:translateX(-50%);display:flex;gap:10px}
+.arrows i{display:block;width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-bottom:14px solid var(--green);animation:rise 1.4s steps(5) infinite}
+.arrows i:nth-child(2){animation-delay:.25s;border-bottom-color:#7cf08a}.arrows i:nth-child(3){animation-delay:.5s}
+@keyframes rise{from{transform:translateY(24px);opacity:0}60%{opacity:1}to{transform:translateY(-34px);opacity:0}}
+.cel-title{font-family:var(--f-d);font-size:clamp(20px,6.5vw,34px);line-height:1.3;color:var(--gold);text-shadow:4px 4px 0 #000;animation:celflash 1s steps(2) infinite}
+.cel.promotion .cel-title{color:#7cf08a}
+@keyframes celflash{50%{color:#fff}}
+.cel-sub{font-size:10px;line-height:1.8;color:var(--text)}
+.cel-note{font-size:8px;line-height:1.8;color:var(--dim)}
+.cel-club{font-size:9px;color:var(--cyan);margin-top:4px}
+.cel .btn{margin-top:10px}
+.cel.league .cel-body,.cel.cup .cel-body{animation:celshake .5s steps(2) 3}
+@keyframes celshake{25%{transform:translate(-3px,2px)}75%{transform:translate(3px,-2px)}}
+@media(prefers-reduced-motion:reduce){.cel,.cel *,.cf,.fw,.cel-rays{animation:none!important}.fw{opacity:.7}.cf{display:none}}
+.rv-div{margin-top:12px;padding-top:8px;border-top:2px solid var(--line)}.rv-h{font-size:9px;color:var(--cyan);margin-bottom:4px}
+.rv-l{font-size:8px;line-height:1.6;padding:3px 4px}.rv-l.me{background:#3a1a22;color:var(--gold)}
+.arrows{top:-34px}

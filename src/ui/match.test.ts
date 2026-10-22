@@ -525,3 +525,47 @@ describe('a cup tie that finishes level', () => {
     expect(ctl().shootout).toBeNull();
   });
 });
+
+describe('winning the cup', () => {
+  it('celebrates with a trophy once the final is won and Continue is pressed', async () => {
+    const g = game();
+    const me = g.world.userClubId;
+    const other = g.world.divisions[0]![0]!;
+    g.cup.rounds.forEach((r, i) => {
+      if (i < 6) r.played = true;
+    });
+    g.cup.rounds[6]!.ties = [{ round: 6, homeId: me, awayId: other, homeGoals: 0, awayGoals: 0, penalties: null, winnerId: me, played: false }];
+    g.season.round = 35;
+    await toPreMatch();
+    await click('[data-act="kick-off"]');
+    const st = ctl().session.state;
+    st.score = [3, 0];
+    st.minute = 88;
+    st.phase = 'second-half';
+    for (let i = 0; i < 60 && ctl().phase !== 'full'; i++) await advance(50);
+    expect(ctl().report!.userWon).toBe(true);
+    expect(q('#celebrate').hidden).toBe(true);
+    await click('[data-act="continue"]');
+    expect(q('#celebrate').hidden).toBe(false);
+    expect(q('#celebrate').textContent).toContain('CUP WINNERS!');
+    expect(q('#celebrate .cel-trophy')).not.toBeNull();
+    await click('#celebrate [data-celebrate]');
+    expect(q('#celebrate').hidden).toBe(true);
+    expect(app.currentScreen).toBe('hq');
+  });
+
+  it('does not celebrate an earlier round', async () => {
+    const g = game();
+    g.cup.rounds[0]!.ties[0]!.homeId = g.world.userClubId;
+    g.season.round = CUP_ROUND_AFTER_MATCHDAY[0]!;
+    await toPreMatch();
+    await click('[data-act="kick-off"]');
+    const st = ctl().session.state;
+    st.score = [3, 0];
+    st.minute = 88;
+    st.phase = 'second-half';
+    for (let i = 0; i < 60 && ctl().phase !== 'full'; i++) await advance(50);
+    await click('[data-act="continue"]');
+    expect(q('#celebrate').hidden).toBe(true);
+  });
+});

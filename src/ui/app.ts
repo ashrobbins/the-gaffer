@@ -14,6 +14,7 @@ import { drawStadium } from './stadiumArt';
 import { startStadiumBuild } from '../engine/finance';
 import { signSponsor } from '../engine/sponsors';
 import { STANDS } from './screens/club';
+import { celebrationHtml, cupWinCelebration, seasonCelebrations, type Celebration } from './celebrate';
 import { MatchController, type MatchSpeed } from './match';
 import { liveMatchHtml, planSheetHtml, preMatchHtml } from './screens/match';
 import { startSession } from '../play';
@@ -58,13 +59,15 @@ export class App {
   private sheet: SheetState | null = null;
   private match: MatchController | null = null;
   private saveFailed = false;
+  /** Celebrations waiting to be shown, one after another. */
+  private celebrations: Celebration[] = [];
 
   constructor(
     private readonly root: HTMLElement,
     private readonly deps: AppDeps,
   ) {
     root.innerHTML =
-      '<div id="shell"></div><div id="sheet" hidden><div class="sh-bg" data-close></div><div class="sh" role="dialog" aria-modal="true" aria-label="Details"></div></div>';
+      '<div id="shell"></div><div id="celebrate" hidden></div><div id="sheet" hidden><div class="sh-bg" data-close></div><div class="sh" role="dialog" aria-modal="true" aria-label="Details"></div></div>';
     root.addEventListener('click', (e) => void this.onClick(e));
     root.addEventListener('input', (e) => this.onInput(e));
     document.addEventListener('keydown', (e) => {
@@ -292,6 +295,11 @@ export class App {
       this.render();
       return true;
     }
+    if (target.closest('[data-celebrate]')) {
+      this.celebrations.shift();
+      this.renderCelebration();
+      return true;
+    }
     if (await this.onClubClick(target)) return true;
     if (await this.onSeasonFlowClick(target)) return true;
     if (await this.onTransferClick(target)) return true;
@@ -429,8 +437,10 @@ export class App {
     const game = this.game;
     const act = target.closest<HTMLElement>('[data-act]')?.dataset.act;
     if (!game || (act !== 'close-season' && act !== 'advance-week' && act !== 'start-season')) return false;
-    if (act === 'close-season') closeSeason(game);
-    else advanceSummer(game);
+    if (act === 'close-season') {
+      const review = closeSeason(game);
+      this.celebrations.push(...seasonCelebrations(review, userClub(game)));
+    } else advanceSummer(game);
     this.transfers.notice = null;
     this.fixLineup();
     await this.persist();
@@ -594,11 +604,14 @@ export class App {
       case 'skip-shootout':
         m.skipShootout();
         return true;
-      case 'continue':
+      case 'continue': {
+        const won = m.report?.kind === 'cup' && m.report.userWon === true && m.session.match.cupRound === game.cup.rounds.length - 1;
+        if (won) this.celebrations.push(cupWinCelebration(game.season.year, userClub(game)));
         this.match = null;
         this.screen = 'hq';
         this.render();
         return true;
+      }
     }
     const speed = target.closest<HTMLElement>('[data-speed]');
     if (speed) {
@@ -635,6 +648,24 @@ export class App {
       }
     }
     return false;
+  }
+
+  /** Shows the first waiting celebration over everything, or hides the overlay. */
+  private renderCelebration(): void {
+    const host = this.root.querySelector<HTMLElement>('#celebrate');
+    if (!host) return;
+    const next = this.celebrations[0];
+    if (!next) {
+      host.hidden = true;
+      host.innerHTML = '';
+      return;
+    }
+    if (host.hidden || host.dataset.title !== next.title + next.subtitle) {
+      host.innerHTML = celebrationHtml(next);
+      host.dataset.title = next.title + next.subtitle;
+    }
+    host.hidden = false;
+    host.querySelector<HTMLElement>('[data-celebrate]')?.focus();
   }
 
   /** Redraws the page and whichever sheet is showing. */
@@ -685,6 +716,7 @@ export class App {
       ${this.saveFailed ? '<p class="foot" role="status">This device would not let the game be saved. Your progress will be lost when you close the page.</p>' : ''}
     </div>`;
     this.renderSheet(false);
+    this.renderCelebration();
     for (const canvas of shell.querySelectorAll<HTMLCanvasElement>('canvas.art')) {
       if (this.game) drawStadium(canvas, Number(canvas.dataset.cap), userClub(this.game).kit);
     }

@@ -168,7 +168,7 @@ function shootoutHtml(game: Game, session: MatchSession, view: MatchView): strin
   const home = club(game, session.match.homeId);
   const away = club(game, session.match.awayId);
   return `<div class="tact" id="shootout"><h2 class="h2">Penalty shootout <small>${score[0]}-${score[1]}</small></h2>${banner}
-    <div class="grid g2" style="gap:0 14px;margin-top:10px"><div><div class="lab">${esc(home.name)}</div>${column('home')}</div><div><div class="lab">${esc(away.name)}</div>${column('away')}</div></div></div>`;
+    <div class="grid" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 14px;margin-top:10px"><div><div class="lab">${esc(home.name)}</div>${column('home')}</div><div><div class="lab">${esc(away.name)}</div>${column('away')}</div></div></div>`;
 }
 
 function fullTimeHtml(game: Game, view: MatchView): string {
@@ -212,10 +212,11 @@ export function liveMatchHtml(game: Game, session: MatchSession, view: MatchView
     <div class="stage"><div class="half" id="half-label">${shooting ? 'PENALTY SHOOTOUT' : `${HALF_NAMES[st.phase]} - ${st.minute}'`}</div>
       ${finished ? '' : speedHtml(view.speed)}
       <div class="scr" id="summary" ${st.events.some((e) => e.kind === 'goal' || e.kind === 'red' || e.kind === 'injury') ? '' : 'hidden'}><div>${summaryFor(game, st, 'home')}</div><div class="r">${summaryFor(game, st, 'away')}</div></div>
-      <div class="banner ${banner.cls}" id="banner" style="${banner.style}">${esc(banner.text)}</div>
+      ${shooting ? '' : `<div class="banner ${banner.cls}" id="banner" style="${banner.style}">${esc(banner.text)}</div>`}
+      ${shooting && view.shootout ? shootoutHtml(game, session, view) : ''}
       <div class="poss"><span class="l">Last 5 mins</span><div class="t"><i style="width:${homeShare}%;background:${home.kit.primary};${textOn(home.kit.primary)}">${homeShare}%</i><i style="width:${100 - homeShare}%;background:${away.kit.primary};${textOn(away.kit.primary)}">${100 - homeShare}%</i></div></div>
       <div class="ms">${stats.map(([l, v]) => `<div><b>${v}</b><span>${l}</span></div>`).join('')}</div>
-      ${shooting && view.shootout ? shootoutHtml(game, session, view) : ''}${finished ? fullTimeHtml(game, view) : ''}
+      ${finished ? fullTimeHtml(game, view) : ''}
       <div class="log" id="log" role="log">${logHtml(game, st)}</div></div></div>
     ${bar ? `<div class="kobar" id="match-bar">${bar}</div>` : ''}`;
 }
