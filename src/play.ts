@@ -147,9 +147,10 @@ export interface MatchReport {
 
 /**
  * Makes the match count. The result is written to the world and the other matches of the round are played, then
- * money, contracts, recovery and the transfer market move on a week. Call once, at full time.
+ * money, contracts, recovery and the transfer market move on a week. Call once, at full time. A cup or play-off match that
+ * finished level uses `shootoutScore` if the shoot-out was played out kick by kick, and a quick simulated one if not.
  */
-export function completeMatch(game: Game, session: MatchSession): MatchReport {
+export function completeMatch(game: Game, session: MatchSession, shootoutScore?: [number, number]): MatchReport {
   const { world, season, cup } = game;
   const { match, state, rng } = session;
   const me = world.userClubId;
@@ -164,13 +165,13 @@ export function completeMatch(game: Game, session: MatchSession): MatchReport {
     const week = processWeek(world, season, results, rng);
     finance = week.userFinance;
   } else if (match.kind === 'playoff') {
-    if (homeGoals === awayGoals) penalties = shootout(rng, cupStrength(world, season, match.homeId), cupStrength(world, season, match.awayId));
+    if (homeGoals === awayGoals) penalties = shootoutScore ?? shootout(rng, cupStrength(world, season, match.homeId), cupStrength(world, season, match.awayId));
     game.playoffs = playPlayoffs(world, season, rng, { homeGoals, awayGoals, penalties });
     const mine = game.playoffs.filter((f) => f.homeId === me || f.awayId === me);
     finance = cupFinance(game, mine, rng);
   } else {
     const level = homeGoals === awayGoals;
-    if (level) penalties = shootout(rng, cupStrength(world, season, match.homeId), cupStrength(world, season, match.awayId));
+    if (level) penalties = shootoutScore ?? shootout(rng, cupStrength(world, season, match.homeId), cupStrength(world, season, match.awayId));
     const score: UserCupScore = { homeGoals, awayGoals, penalties };
     const ties = playCupRound(world, season, cup, rng, score);
     finance = cupFinance(game, ties, rng);

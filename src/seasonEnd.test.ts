@@ -138,6 +138,30 @@ describe('the close season', () => {
     expect(game.phase).toBe('summer');
   });
 
+  it('pays sponsors every week of the close season, and charges no wages', () => {
+    const game = closed();
+    const me = game.world.clubs[game.world.userClubId]!;
+    const income = me.sponsors.reduce((s, d) => s + d.perMatch, 0);
+    expect(income).toBeGreaterThan(0);
+    const cash = me.cash;
+    advanceSummer(game);
+    expect(me.cash).toBe(cash + income);
+    advanceSummer(game);
+    expect(me.cash).toBe(cash + 2 * income);
+  });
+
+  it('moves a stand being built on each week of the close season', () => {
+    const game = closed();
+    const me = game.world.clubs[game.world.userClubId]!;
+    const before = me.stadium.capacity;
+    me.building = { seats: 500, matchdaysLeft: 2 };
+    advanceSummer(game);
+    expect(me.building?.matchdaysLeft).toBe(1);
+    advanceSummer(game);
+    expect(me.building).toBeNull();
+    expect(me.stadium.capacity).toBe(before + 500);
+  });
+
   it('starts the new season on its opening day, with a first fixture and the review cleared', () => {
     const game = closed();
     while (!isLastSummerWeek(game)) advanceSummer(game);

@@ -247,3 +247,5 @@ tr.champ td{background:var(--gold);color:#1a1300;border-bottom-color:#b8860b}tr.
 @media(max-width:520px){th,td{padding-inline:5px}.nav{gap:4px;padding-inline:8px}.nav button{flex:1 1 auto;padding:10px 4px;font-size:7px;letter-spacing:0}}
 #full-time .stat span:last-child{white-space:nowrap;text-align:right}
 @media(max-width:360px){.hide-xs{display:none}}
+.spd{margin:8px 0}.spd .pill{cursor:pointer}
+.pk{display:grid;grid-template-columns:18px minmax(0,1fr) auto;gap:6px;padding:5px 0;border-bottom:1px dotted #26336a;font-size:8px;align-items:center}.pk b{font-weight:400}

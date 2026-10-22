@@ -1,6 +1,8 @@
 import { aiManageSide, changeFormation, makeSubstitution, pendingForcedSub, setStyle as setLiveStyle, setTeamSheet, startSecondHalf, stepMinute, swapSlots } from '../engine/match';
 import { setFormation, setStyle, swapPositions, swapWithBench, toTeamSheet } from '../engine/lineup';
 import type { FormationId, PlayStyle, Side } from '../engine/matchTypes';
+import { cupStrength, shootoutKicks, type ShootoutKick } from '../engine/knockout';
+import type { Player } from '../engine/types';
 import type { Game } from '../game';
 import { completeMatch, type MatchReport, type MatchSession } from '../play';
 import type { LineupRef } from './dnd';
@@ -9,6 +11,35 @@ import type { MatchPhaseUi, MatchView } from './screens/match';
 /** Real time for each minute of the match, and how long the clock stands still while a goal or red card banner flashes. */
 export const MINUTE_MS = 330;
 export const FLASH_MS = 2300;
+/** Real time between penalties in a shoot-out, at normal speed. */
+export const KICK_MS = 1300;
+
+/** How fast the match clock runs, as a multiple of normal. */
+export const SPEEDS = [0.5, 1, 2] as const;
+export type MatchSpeed = (typeof SPEEDS)[number];
+const SPEED_KEY = 'gaffer-speed';
+
+/** The speed the user last picked, kept on this device. */
+export function savedSpeed(): MatchSpeed {
+  try {
+    const n = Number(localStorage.getItem(SPEED_KEY));
+    return (SPEEDS as readonly number[]).includes(n) ? (n as MatchSpeed) : 1;
+  } catch {
+    return 1;
+  }
+}
+
+/** One penalty in a shoot-out, with the player who took it. */
+export interface TakenKick extends ShootoutKick {
+  playerId: string;
+}
+
+export interface ShootoutState {
+  kicks: TakenKick[];
+  score: [number, number];
+  /** How many kicks have been shown so far. */
+  shown: number;
+}
 
 export interface MatchHooks {
   /** Redraw the match screen and any sheet. */
@@ -32,7 +63,11 @@ export class MatchController implements MatchView {
   notice: string | null = null;
   report: MatchReport | null = null;
 
+  speed: MatchSpeed = savedSpeed();
+  shootout: ShootoutState | null = null;
+
   private timer: ReturnType<typeof setInterval> | null = null;
+  private kickTimer: ReturnType<typeof setInterval> | null = null;
   private holdTimer: ReturnType<typeof setTimeout> | null = null;
   private holding = false;
 
@@ -99,10 +134,25 @@ export class MatchController implements MatchView {
 
   private startTimer(): void {
     this.stopTimer();
-    this.timer = setInterval(() => this.tick(), MINUTE_MS);
+    this.timer = setInterval(() => this.tick(), MINUTE_MS / this.speed);
+  }
+
+  /** Changes how fast the match runs. The choice is remembered for next time. */
+  setSpeed(speed: MatchSpeed): void {
+    this.speed = speed;
+    try {
+      localStorage.setItem(SPEED_KEY, String(speed));
+    } catch {
+      // Not being able to remember it is fine.
+    }
+    if (this.timer) this.startTimer();
+    if (this.kickTimer) this.startKicks();
+    this.hooks.render();
   }
 
   private stopTimer(): void {
+    if (this.kickTimer) clearInterval(this.kickTimer);
+    this.kickTimer = null;
     if (this.timer) clearInterval(this.timer);
     if (this.holdTimer) clearTimeout(this.holdTimer);
     this.timer = null;
@@ -132,7 +182,8 @@ export class MatchController implements MatchView {
 
     if (state.phase === 'full-time') {
       this.stopTimer();
-      void this.finish();
+      if (this.session.match.kind !== 'league' && state.score[0] === state.score[1]) this.beginShootout();
+      else void this.finish();
       return;
     }
     if (state.phase === 'half-time' || pendingForcedSub(state) === this.userSide) {
@@ -150,10 +201,68 @@ export class MatchController implements MatchView {
     this.hooks.render();
   }
 
-  private async finish(): Promise<void> {
+  /** A cup tie or play-off final that is level goes to penalties, played out one kick at a time. */
+  private beginShootout(): void {
+    const { game, session } = this;
+    const { match, state } = session;
+    const result = shootoutKicks(session.rng, cupStrength(game.world, game.season, match.homeId), cupStrength(game.world, game.season, match.awayId));
+    const takers = (side: Side): string[] => {
+      const players = state.sides[side].slots
+        .filter((id): id is string => id !== null && !!state.players[id] && state.players[id]!.redCards === 0)
+        .map((id) => game.world.players[id] as Player)
+        .filter((p) => p.position !== 'GK')
+        .sort((a, b) => b.ability - a.ability);
+      return players.map((p) => p.id);
+    };
+    const order = { home: takers('home'), away: takers('away') };
+    const used = { home: 0, away: 0 };
+    const kicks: TakenKick[] = result.kicks.map((k) => {
+      const list = order[k.side];
+      const playerId = list[used[k.side]++ % Math.max(1, list.length)] as string;
+      return { ...k, playerId };
+    });
+    this.shootout = { kicks, score: result.score, shown: 0 };
+    this.phase = 'penalties';
     this.paused = false;
     this.planOpen = false;
-    this.report = completeMatch(this.game, this.session);
+    this.startKicks();
+    this.hooks.render();
+  }
+
+  private startKicks(): void {
+    if (this.kickTimer) clearInterval(this.kickTimer);
+    this.kickTimer = setInterval(() => this.revealKick(), KICK_MS / this.speed);
+  }
+
+  private revealKick(): void {
+    const s = this.shootout;
+    if (!s) return;
+    s.shown++;
+    if (s.shown >= s.kicks.length) {
+      if (this.kickTimer) clearInterval(this.kickTimer);
+      this.kickTimer = null;
+      // Let the last kick sink in before the result.
+      this.holdTimer = setTimeout(() => void this.finish(), 1500);
+    }
+    this.hooks.render();
+  }
+
+  /** Shows the rest of the shoot-out at once. */
+  skipShootout(): void {
+    const s = this.shootout;
+    if (!s || this.phase !== 'penalties' || s.shown >= s.kicks.length) return;
+    if (this.kickTimer) clearInterval(this.kickTimer);
+    this.kickTimer = null;
+    s.shown = s.kicks.length;
+    void this.finish();
+  }
+
+  private async finish(): Promise<void> {
+    if (this.holdTimer) clearTimeout(this.holdTimer);
+    this.holdTimer = null;
+    this.paused = false;
+    this.planOpen = false;
+    this.report = completeMatch(this.game, this.session, this.shootout?.score);
     this.phase = 'full';
     await this.hooks.persist();
     this.hooks.render();
@@ -161,6 +270,7 @@ export class MatchController implements MatchView {
 
   /** Stops the clock without opening the plan sheet, for example when the user leaves the screen. */
   suspend(): void {
+    if (this.phase === 'penalties') return;
     if (this.phase !== 'live') return;
     this.stopTimer();
     this.paused = true;

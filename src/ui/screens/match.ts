@@ -25,7 +25,7 @@ export const STYLE_INFO: Record<PlayStyle, [string, string]> = {
   'park-the-bus': ['Park the bus', 'Ten behind the ball'],
 };
 
-export type MatchPhaseUi = 'pre' | 'live' | 'full';
+export type MatchPhaseUi = 'pre' | 'live' | 'penalties' | 'full';
 
 /** What the match screens need to know beyond the engine's own state. */
 export interface MatchView {
@@ -34,6 +34,8 @@ export interface MatchView {
   planOpen: boolean;
   notice: string | null;
   report: MatchReport | null;
+  speed: number;
+  shootout: { kicks: { side: Side; scored: boolean; playerId: string }[]; score: [number, number]; shown: number } | null;
 }
 
 const club = (game: Game, id: string): Club => game.world.clubs[id] as Club;
@@ -52,7 +54,7 @@ function scoreboard(game: Game, state: MatchState): string {
 // Before kick-off
 // ---------------------------------------------------------------------------------------------------------------
 
-export function preMatchHtml(game: Game, session: MatchSession): string {
+export function preMatchHtml(game: Game, session: MatchSession, speed = 1): string {
   const me = club(game, game.world.userClubId);
   const oppId = session.userSide === 'home' ? session.match.awayId : session.match.homeId;
   const opp = club(game, oppId);
@@ -75,7 +77,7 @@ export function preMatchHtml(game: Game, session: MatchSession): string {
         <div><div class="stat"><span>Their strength</span><span>${theirs}</span></div>
           <div class="stat"><span>Your team</span><span class="${mine >= theirs ? 'grn' : 'red'}">${mine}</span></div>
           <div class="stat"><span>Played</span><span>${esc(shortDate(session.match.date))}</span></div></div></div>
-      <div class="note" style="margin-top:8px">Changes before kick off are free. They do not use up substitutions.${session.match.kind !== 'league' ? ' A level score after 90 minutes goes to penalties.' : ''}</div>
+      <div class="note" style="margin-top:8px">Changes before kick off are free. They do not use up substitutions.${session.match.kind !== 'league' ? ' A level score after 90 minutes goes to a penalty shootout.' : ''}</div>
       ${session.calledUp.length ? `<div class="resp bad" style="margin-top:10px">You had too few fit players, so ${session.calledUp.length} academy player${session.calledUp.length > 1 ? 's were' : ' was'} called up.</div>` : ''}
     </div>
     <div class="grid g21" style="margin-top:18px">
@@ -85,7 +87,8 @@ export function preMatchHtml(game: Game, session: MatchSession): string {
       </div>
       <div class="box" style="align-self:start"><h2>Play style</h2><div class="styles" style="grid-template-columns:repeat(2,minmax(0,1fr))">${PLAY_STYLES.map(
         (s) => `<button data-style="${s}" class="${lineup.style === s ? 'on' : ''}" type="button">${STYLE_INFO[s][0]}<small>${STYLE_INFO[s][1]}</small></button>`,
-      ).join('')}</div></div>
+      ).join('')}</div>
+        <div style="margin-top:14px">${speedHtml(speed)}</div></div>
     </div>
     <div class="kobar"><button class="btn" data-act="kick-off" type="button">Kick off</button></div>`;
 }
@@ -135,6 +138,39 @@ function logHtml(game: Game, state: MatchState): string {
     .join('');
 }
 
+const SPEED_LABELS: [number, string][] = [
+  [0.5, '0.5x'],
+  [1, '1x'],
+  [2, '2x'],
+];
+
+/** The match speed picker: half speed, normal and double. */
+export function speedHtml(speed: number): string {
+  return `<div class="row2 spd" role="group" aria-label="Match speed" style="justify-content:center;gap:6px"><span class="mini">Speed</span>${SPEED_LABELS.map(
+    ([v, label]) => `<button class="pill ${v === speed ? 'on' : ''}" data-speed="${v}" aria-pressed="${v === speed}" type="button">${label}</button>`,
+  ).join('')}</div>`;
+}
+
+/** The penalty shoot-out so far: each side's kicks and who took them. */
+function shootoutHtml(game: Game, session: MatchSession, view: MatchView): string {
+  const s = view.shootout as NonNullable<MatchView['shootout']>;
+  const shown = s.kicks.slice(0, s.shown);
+  const score: [number, number] = [shown.filter((k) => k.side === 'home' && k.scored).length, shown.filter((k) => k.side === 'away' && k.scored).length];
+  const last = shown.at(-1);
+  const column = (side: Side): string =>
+    shown
+      .filter((k) => k.side === side)
+      .map((k, i) => `<div class="pk"><span class="dim">${i + 1}</span><span>${esc(surname(player(game, k.playerId)))}</span><b class="${k.scored ? 'grn' : 'red'}">${k.scored ? 'GOAL' : 'MISS'}</b></div>`)
+      .join('');
+  const banner = last
+    ? `<div class="banner ${last.scored ? 'goal' : 'red'}" id="pk-banner">${esc(surname(player(game, last.playerId)))} ${last.scored ? 'SCORES' : 'MISSES'}</div>`
+    : '<div class="banner" id="pk-banner" style="background:#1b2552;color:#fff">PENALTIES. NERVES OF STEEL NEEDED</div>';
+  const home = club(game, session.match.homeId);
+  const away = club(game, session.match.awayId);
+  return `<div class="tact" id="shootout"><h2 class="h2">Penalty shootout <small>${score[0]}-${score[1]}</small></h2>${banner}
+    <div class="grid g2" style="gap:0 14px;margin-top:10px"><div><div class="lab">${esc(home.name)}</div>${column('home')}</div><div><div class="lab">${esc(away.name)}</div>${column('away')}</div></div></div>`;
+}
+
 function fullTimeHtml(game: Game, view: MatchView): string {
   const r = view.report as MatchReport;
   const fin = r.finance;
@@ -164,18 +200,22 @@ export function liveMatchHtml(game: Game, session: MatchSession, view: MatchView
     ['Reds', `${st.stats.home.redCards} - ${st.stats.away.redCards}`],
   ];
   const finished = view.phase === 'full';
+  const shooting = view.phase === 'penalties';
   const bar = finished
     ? ''
-    : view.paused
+    : shooting
+      ? `<button class="btn ghost" data-act="skip-shootout" type="button">Skip to result</button>`
+      : view.paused
       ? `<button class="btn" data-act="resume" type="button">Resume match</button><button class="btn ghost" data-act="plan" type="button">Change plan</button>`
       : `<button class="btn" data-act="pause" type="button">Pause match</button>`;
   return `<div class="mwrap">${scoreboard(game, st)}
-    <div class="stage"><div class="half" id="half-label">${HALF_NAMES[st.phase]} - ${st.minute}'</div>
+    <div class="stage"><div class="half" id="half-label">${shooting ? 'PENALTY SHOOTOUT' : `${HALF_NAMES[st.phase]} - ${st.minute}'`}</div>
+      ${finished ? '' : speedHtml(view.speed)}
       <div class="scr" id="summary" ${st.events.some((e) => e.kind === 'goal' || e.kind === 'red' || e.kind === 'injury') ? '' : 'hidden'}><div>${summaryFor(game, st, 'home')}</div><div class="r">${summaryFor(game, st, 'away')}</div></div>
       <div class="banner ${banner.cls}" id="banner" style="${banner.style}">${esc(banner.text)}</div>
       <div class="poss"><span class="l">Last 5 mins</span><div class="t"><i style="width:${homeShare}%;background:${home.kit.primary};${textOn(home.kit.primary)}">${homeShare}%</i><i style="width:${100 - homeShare}%;background:${away.kit.primary};${textOn(away.kit.primary)}">${100 - homeShare}%</i></div></div>
       <div class="ms">${stats.map(([l, v]) => `<div><b>${v}</b><span>${l}</span></div>`).join('')}</div>
-      ${finished ? fullTimeHtml(game, view) : ''}
+      ${shooting && view.shootout ? shootoutHtml(game, session, view) : ''}${finished ? fullTimeHtml(game, view) : ''}
       <div class="log" id="log" role="log">${logHtml(game, st)}</div></div></div>
     ${bar ? `<div class="kobar" id="match-bar">${bar}</div>` : ''}`;
 }

@@ -1,3 +1,4 @@
+import { addDays } from './calendar';
 import { CONTRACT } from './config';
 import type { Rng } from './rng';
 import { FREE_AGENT, type Player, type World } from './types';
@@ -29,18 +30,31 @@ export interface RenewalResult {
   chance: number;
 }
 
-/** Offers a player a new contract. If he accepts, his wage and contract length are updated. */
-export function offerRenewal(world: World, playerId: string, offerWage: number, games: number, rng: Rng): RenewalResult {
+/** The day the user may offer a player another contract after he turned one down, or null if he can be asked now. */
+export function renewalBlockedUntil(world: World, playerId: string, date: string): string | null {
+  const until = world.contractBlocks?.[playerId];
+  return until !== undefined && date < until ? until : null;
+}
+
+/**
+ * Offers a player a new contract. If he accepts, his wage and contract length are updated. If he refuses and a `date`
+ * is given, he will not talk again until the cooldown has passed.
+ */
+export function offerRenewal(world: World, playerId: string, offerWage: number, games: number, rng: Rng, date?: string): RenewalResult {
   const player = world.players[playerId];
   if (!player) throw new Error(`Unknown player ${playerId}`);
   if (player.clubId === FREE_AGENT) throw new Error('He is not at the club');
   if (offerWage <= 0) throw new Error('The wage must be more than nothing');
   if (games < CONTRACT.minGames || games > CONTRACT.maxGames) throw new Error('The contract length is out of range');
+  if (date !== undefined && renewalBlockedUntil(world, playerId, date)) throw new Error('He will not talk about a new deal yet');
   const chance = renewalChance(player, offerWage, games);
   const accepted = rng.chance(chance / 100);
   if (accepted) {
     player.wage = roundTo(offerWage, 50);
     player.contractGames = games;
+    if (world.contractBlocks) delete world.contractBlocks[playerId];
+  } else if (date !== undefined) {
+    (world.contractBlocks ??= {})[playerId] = addDays(date, CONTRACT.refusalDays);
   }
   return { accepted, chance };
 }

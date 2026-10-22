@@ -5,10 +5,11 @@ import {
   marketValue,
   offerRenewal,
   releasePlayer,
+  renewalBlockedUntil,
   renewalChance,
   tickContracts,
 } from './contracts';
-import { createRng } from './rng';
+import { createRng, type Rng } from './rng';
 import { FREE_AGENT } from './types';
 import { generateWorld, wageForAbility } from './worldgen';
 
@@ -201,5 +202,47 @@ describe('contractsExpiringSoon and marketValue', () => {
   it('follows rating and age', () => {
     expect(marketValue({ ability: 80, age: 25 })).toBeGreaterThan(marketValue({ ability: 70, age: 25 }));
     expect(marketValue({ ability: 75, age: 21 })).toBeGreaterThan(marketValue({ ability: 75, age: 33 }));
+  });
+});
+
+describe('the cooldown after a refused contract offer', () => {
+  const setup = () => {
+    const world = generateWorld(11);
+    const id = world.clubs[world.userClubId]!.playerIds[0]!;
+    world.players[id]!.mood = 1;
+    return { world, id };
+  };
+  const refuses = { chance: () => false, next: () => 0.99 } as unknown as Rng;
+  const accepts = { chance: () => true, next: () => 0 } as unknown as Rng;
+
+  it('stops further offers for two weeks', () => {
+    const { world, id } = setup();
+    const r = offerRenewal(world, id, 50, 38, refuses, '2026-09-05');
+    expect(r.accepted).toBe(false);
+    expect(renewalBlockedUntil(world, id, '2026-09-05')).toBe('2026-09-19');
+    expect(renewalBlockedUntil(world, id, '2026-09-12')).toBe('2026-09-19');
+    expect(() => offerRenewal(world, id, 5000, 38, accepts, '2026-09-12')).toThrow(/yet/);
+    expect(renewalBlockedUntil(world, id, '2026-09-19')).toBeNull();
+    expect(offerRenewal(world, id, 5000, 38, accepts, '2026-09-19').accepted).toBe(true);
+  });
+
+  it('applies only to that player', () => {
+    const { world, id } = setup();
+    offerRenewal(world, id, 50, 38, refuses, '2026-09-05');
+    const other = world.clubs[world.userClubId]!.playerIds[1]!;
+    expect(renewalBlockedUntil(world, other, '2026-09-06')).toBeNull();
+  });
+
+  it('is cleared once he signs', () => {
+    const { world, id } = setup();
+    offerRenewal(world, id, 50, 38, refuses, '2026-09-05');
+    offerRenewal(world, id, 5000, 38, accepts, '2026-09-19');
+    expect(world.contractBlocks?.[id]).toBeUndefined();
+  });
+
+  it('does not apply when no date is given', () => {
+    const { world, id } = setup();
+    offerRenewal(world, id, 50, 38, refuses);
+    expect(renewalBlockedUntil(world, id, '2026-09-06')).toBeNull();
   });
 });

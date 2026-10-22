@@ -14,21 +14,42 @@ export function cupStrength(world: World, season: Season, clubId: string): numbe
  * Returns the score, which is never level.
  */
 export function shootout(rng: Rng, homeStrength: number, awayStrength: number): [number, number] {
+  return shootoutKicks(rng, homeStrength, awayStrength).score;
+}
+
+export interface ShootoutKick {
+  side: 'home' | 'away';
+  scored: boolean;
+}
+
+/**
+ * A shoot-out played kick by kick, home first. Five kicks each, stopping as soon as one side cannot be caught, then
+ * sudden death. Takes the same odds as `shootout`, so a slightly stronger side has a slightly better chance.
+ */
+export function shootoutKicks(rng: Rng, homeStrength: number, awayStrength: number): { kicks: ShootoutKick[]; score: [number, number] } {
   const edge = Math.max(-0.02, Math.min(0.02, (homeStrength - awayStrength) / 1000));
-  const scores = (strongerBy: number): boolean => rng.chance(0.75 + strongerBy);
-  let home = 0;
-  let away = 0;
-  for (let kick = 0; kick < 5; kick++) {
-    if (scores(edge)) home++;
-    if (scores(-edge)) away++;
+  const kicks: ShootoutKick[] = [];
+  const score = { home: 0, away: 0 };
+  const taken = { home: 0, away: 0 };
+  const take = (side: 'home' | 'away'): void => {
+    const scored = rng.chance(0.75 + (side === 'home' ? edge : -edge));
+    kicks.push({ side, scored });
+    taken[side]++;
+    if (scored) score[side]++;
+  };
+  const decided = (): boolean => {
+    if (taken.home < 5 || taken.away < 5) {
+      return score.home > score.away + (5 - taken.away) || score.away > score.home + (5 - taken.home);
+    }
+    return taken.home === taken.away && score.home !== score.away;
+  };
+  for (;;) {
+    take('home');
+    if (decided()) break;
+    take('away');
+    if (decided()) break;
   }
-  while (home === away) {
-    const h = scores(edge);
-    const a = scores(-edge);
-    if (h) home++;
-    if (a) away++;
-  }
-  return [home, away];
+  return { kicks, score: [score.home, score.away] };
 }
 
 /**

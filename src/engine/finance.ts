@@ -192,3 +192,18 @@ export function extraGatePerHomeMatch(club: Club, seats: number): number {
   const after = Math.min(club.stadium.capacity + seats, club.fanBase);
   return roundTo((after - before) * club.ticketPrice, 10);
 }
+
+/**
+ * A week of the close season. There are no matches, so no gate and no wages, but sponsors still pay once a week and a
+ * stand being built moves on. Returns what the user's club was paid.
+ */
+export function processSummerWeek(world: World): number {
+  let user = 0;
+  for (const club of Object.values(world.clubs)) {
+    const income = sponsorIncome(club);
+    club.cash += income;
+    if (club.isUser) user = income;
+    progressBuild(club);
+  }
+  return user;
+}

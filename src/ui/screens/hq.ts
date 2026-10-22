@@ -61,6 +61,7 @@ export function summerControls(game: Game): string {
   const last = isLastSummerWeek(game);
   return `<div class="stat"><span>Date</span><span class="gold">${shortDate(game.date)}</span></div>
     <div class="stat"><span>Transfer window</span><span class="${w.open ? 'grn' : 'red'}">${w.open ? `Open, ${Math.max(0, w.daysToClose)} days left` : 'Closed'}</span></div>
+    <div class="stat"><span>Sponsors pay each week</span><span class="grn">+${num(sponsorIncome(userClub(game)))}</span></div>
     <div class="row2" style="margin-top:14px"><button class="btn" data-act="${last ? 'start-season' : 'advance-week'}" type="button">${last ? 'Start the season' : 'Advance a week'}</button></div>
     <div class="note center" style="margin-top:8px">Between seasons, time moves one week at a time. Sign players, then advance when you are ready.${last ? ' The new season kicks off on ' + shortDate(matchdayDate(game.season.year, 0)) + '.' : ''}</div>`;
 }

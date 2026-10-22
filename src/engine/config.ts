@@ -155,6 +155,8 @@ export const CONTRACT = {
   /** Matchdays of rest that bring fatigue down: some fixed, some proportional. */
   recoveryFlat: 10,
   recoveryShare: 0.35,
+  /** Days before the user can offer a player another contract after he turned one down. */
+  refusalDays: 14,
 };
 
 export const TRANSFER = {
@@ -163,7 +165,7 @@ export const TRANSFER = {
   minSquad: 16,
   attempts: 3,
   /** Days before the user can reopen talks with a player who walked away. */
-  blockDays: 7,
+  blockDays: 14,
   signingContractGames: 76,
   maxBids: 5,
   /** Offers to a club: share of its asking price, and the chance it accepts. */

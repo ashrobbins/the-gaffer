@@ -1,4 +1,5 @@
-import { askingWage, renewalChance } from '../engine/contracts';
+import { askingWage, renewalBlockedUntil, renewalChance } from '../engine/contracts';
+import { TRANSFER } from '../engine/config';
 import { baseAmount, offerOptions, type Negotiation } from '../engine/negotiation';
 import { counterChance } from '../engine/selling';
 import { weeklyProjection, wageBill } from '../engine/finance';
@@ -6,7 +7,7 @@ import { FORMATIONS } from '../engine/formations';
 import { positionFit } from '../engine/positions';
 import type { Club, Player } from '../engine/types';
 import type { Game } from '../game';
-import { esc, gbp, num } from './format';
+import { esc, gbp, num, shortDate } from './format';
 import { pips, segs } from './icons';
 import { goalkeeperKit } from './kits';
 import { shirt } from './sprites';
@@ -88,6 +89,7 @@ export function contractSheet(game: Game, club: Club, s: Extract<SheetState, { k
   const p = game.world.players[s.playerId] as Player;
   const range = wageRange(p);
   const name = `${esc(p.firstName)} ${esc(p.lastName)}`;
+  const blocked = renewalBlockedUntil(game.world, s.playerId, game.date);
   if (s.result === 'accepted') {
     return `<div class="sh-grab"></div><div class="row2" style="justify-content:space-between;flex-wrap:nowrap"><div class="gold" style="font-size:11px">${name}</div>${close}</div>
       <div class="resp ok" style="margin-top:16px">Agreed. ${esc(p.lastName)} signs for ${p.contractGames} games at ${gbp(p.wage)} a week.</div>
@@ -100,7 +102,7 @@ export function contractSheet(game: Game, club: Club, s: Extract<SheetState, { k
   }
   return `<div class="sh-grab"></div>
     <div class="row2" style="justify-content:space-between;flex-wrap:nowrap;align-items:flex-start"><div style="min-width:0"><div class="mini">Offer new deal</div><div class="gold" style="font-size:11px;line-height:1.6;margin-top:8px">${name}</div><div class="dim" style="margin-top:4px">${p.position} · age ${p.age}</div></div>${close}</div>
-    ${s.result === 'refused' ? '<div class="resp bad" style="margin-top:14px">He turned the offer down. Try more money, or a shorter deal.</div>' : ''}
+    ${blocked ? `<div class="resp bad" style="margin-top:14px">${s.result === 'refused' ? 'He turned the offer down.' : 'He will not talk about a new deal yet.'} No more offers until ${shortDate(blocked)}.</div>` : s.result === 'refused' ? '<div class="resp bad" style="margin-top:14px">He turned the offer down. Try more money, or a shorter deal.</div>' : ''}
     <div style="margin-top:12px"><div class="stat"><span>Now</span><span>${num(p.wage)} / wk · ${p.contractGames} games left</span></div>
       <div class="stat"><span>Happiness</span>${pips(p.happiness, p.happiness < 3)}</div>
       <div class="stat"><span class="dim">Made of</span><span class="dim">form ${p.form}/5 and playing time</span></div></div>
@@ -108,7 +110,7 @@ export function contractSheet(game: Game, club: Club, s: Extract<SheetState, { k
     <span class="lab">Length</span>
     <div class="chips" style="margin-bottom:14px">${LENGTHS.map(([g, t]) => `<button class="pill ${s.games === g ? 'on' : ''}" data-len="${g}" type="button">${t} · ${g}</button>`).join('')}</div>
     <div id="contract-dynamic">${contractDynamic(game, club, s)}</div>
-    <div class="row2" style="margin-top:18px"><button class="btn" data-offer type="button">Make offer</button><button class="btn ghost" data-release type="button">Let them go</button></div>`;
+    <div class="row2" style="margin-top:18px"><button class="btn" data-offer ${blocked ? 'disabled' : ''} type="button">Make offer</button><button class="btn ghost" data-release type="button">Let them go</button></div>`;
 }
 
 const OFFER_LABELS = { low: 'Lower', market: 'Market value', high: 'Higher' } as const;
@@ -128,7 +130,7 @@ export function bidSheet(game: Game, club: Club, s: Extract<SheetState, { kind: 
   const message = s.message ? `<div class="resp ${s.message.ok ? 'ok' : 'bad'}">${esc(s.message.text)}</div>` : '';
 
   if (neg.phase === 'failed') {
-    return `${head}<div class="resp bad" style="margin-top:16px">Talks collapsed. ${esc(fee || neg.fee === 0 ? seller : p.lastName)} walked away. You cannot reopen negotiations for this player for 7 days.</div>
+    return `${head}<div class="resp bad" style="margin-top:16px">Talks collapsed. ${esc(fee || neg.fee === 0 ? seller : p.lastName)} walked away. You cannot reopen negotiations for this player for ${TRANSFER.blockDays} days.</div>
       <div class="row2" style="margin-top:16px"><button class="btn" data-close type="button">Close</button></div>`;
   }
   if (neg.phase === 'done') {

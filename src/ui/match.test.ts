@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { MATCH } from '../engine/config';
+import { CUP_ROUND_AFTER_MATCHDAY, MATCH } from '../engine/config';
 import { memoryStorage } from '../storage';
 import { App } from './app';
-import { FLASH_MS, MINUTE_MS, type MatchController } from './match';
+import { FLASH_MS, KICK_MS, MINUTE_MS, type MatchController } from './match';
 
 let root: HTMLElement;
 let app: App;
@@ -12,6 +12,7 @@ const flush = async (): Promise<void> => void (await vi.advanceTimersByTimeAsync
 const advance = async (ms: number): Promise<void> => void (await vi.advanceTimersByTimeAsync(ms));
 
 beforeEach(async () => {
+  localStorage.removeItem('gaffer-speed');
   vi.useFakeTimers();
   document.body.innerHTML = '<div id="app"></div>';
   root = document.querySelector('#app') as HTMLElement;
@@ -390,5 +391,137 @@ describe('leaving a match part way through', () => {
     await click('#match-bar [data-act="resume"]');
     await advance(MINUTE_MS * 3 + 10);
     expect(ctl().session.state.minute).toBeGreaterThan(minute);
+  });
+});
+
+describe('match speed', () => {
+  beforeEach(() => {
+    localStorage.removeItem('gaffer-speed');
+  });
+
+  it('offers 0.5x, 1x and 2x, starting at normal speed', async () => {
+    await toPreMatch();
+    expect(all('#screen [data-speed]').map((b) => b.textContent)).toEqual(['0.5x', '1x', '2x']);
+    expect(q('#screen [data-speed="1"]').classList.contains('on')).toBe(true);
+  });
+
+  it('runs the clock twice as fast at 2x', async () => {
+    await toPreMatch();
+    await click('#screen [data-speed="2"]');
+    await click('[data-act="kick-off"]');
+    await advance(MINUTE_MS * 4 + 10);
+    expect(ctl().session.state.minute).toBeGreaterThanOrEqual(7);
+  });
+
+  it('runs the clock at half speed at 0.5x', async () => {
+    await toPreMatch();
+    await click('#screen [data-speed="0.5"]');
+    await click('[data-act="kick-off"]');
+    await advance(MINUTE_MS * 4 + 10);
+    expect(ctl().session.state.minute).toBeLessThanOrEqual(2);
+    expect(ctl().session.state.minute).toBeGreaterThanOrEqual(1);
+  });
+
+  it('can be changed in the middle of the match, taking effect at once', async () => {
+    await toPreMatch();
+    await click('[data-act="kick-off"]');
+    await advance(MINUTE_MS * 2 + 10);
+    const before = ctl().session.state.minute;
+    await click('#screen [data-speed="2"]');
+    expect(q('#screen [data-speed="2"]').classList.contains('on')).toBe(true);
+    await advance(MINUTE_MS * 2 + 10);
+    expect(ctl().session.state.minute - before).toBeGreaterThanOrEqual(3);
+  });
+
+  it('is remembered for the next match', async () => {
+    await toPreMatch();
+    await click('#screen [data-speed="2"]');
+    expect(localStorage.getItem('gaffer-speed')).toBe('2');
+    await click('[data-nav="hq"]');
+    app = new App(root, { storage: memoryStorage(), random: () => 0.37 });
+    const started = app.start();
+    await flush();
+    await started;
+    (root.querySelector('#create-club') as HTMLElement).click();
+    await flush();
+    await toPreMatch();
+    expect(q('#screen [data-speed="2"]').classList.contains('on')).toBe(true);
+  });
+});
+
+describe('a cup tie that finishes level', () => {
+  async function levelCupTie(): Promise<void> {
+    const g = game();
+    g.cup.rounds[0]!.ties[0]!.homeId = g.world.userClubId;
+    g.season.round = CUP_ROUND_AFTER_MATCHDAY[0]!;
+    await toPreMatch();
+    await click('[data-act="kick-off"]');
+    const st = ctl().session.state;
+    st.score = [1, 1];
+    st.minute = 88;
+    st.phase = 'second-half';
+    for (let i = 0; i < 60 && ctl().phase === 'live'; i++) await advance(50);
+  }
+
+  it('goes to a penalty shootout, shown one kick at a time', async () => {
+    await levelCupTie();
+    expect(ctl().phase).toBe('penalties');
+    expect(q('#half-label').textContent).toBe('PENALTY SHOOTOUT');
+    expect(q('#shootout')).not.toBeNull();
+    expect(all('#shootout .pk')).toHaveLength(0);
+    await advance(KICK_MS + 10);
+    expect(all('#shootout .pk')).toHaveLength(1);
+    await advance(KICK_MS * 3);
+    expect(all('#shootout .pk')).toHaveLength(4);
+    expect(q('#pk-banner').textContent).toMatch(/SCORES|MISSES/);
+    expect(q('[data-act="skip-shootout"]')).not.toBeNull();
+  });
+
+  it('shows the score as the kicks go in, and ends with a winner and the result', async () => {
+    await levelCupTie();
+    const total = ctl().shootout!.kicks.length;
+    await advance(KICK_MS * (total + 3));
+    expect(ctl().phase).toBe('full');
+    const [h, a] = ctl().shootout!.score;
+    expect(h).not.toBe(a);
+    expect(ctl().report!.penalties).toEqual([h, a]);
+    expect(q('#full-time').textContent).toContain(`pens ${h}-${a}`);
+    expect(q('#full-time').textContent).toMatch(/WIN|DEFEAT/);
+    expect(game().cup.rounds[0]!.played).toBe(true);
+  });
+
+  it('names a taker for every kick, from the players on the pitch', async () => {
+    await levelCupTie();
+    const kicks = ctl().shootout!.kicks;
+    const st = ctl().session.state;
+    for (const k of kicks) expect(st.sides[k.side].slots).toContain(k.playerId);
+    expect(kicks.every((k) => game().world.players[k.playerId]!.position !== 'GK')).toBe(true);
+  });
+
+  it('can be skipped to the result', async () => {
+    await levelCupTie();
+    await click('[data-act="skip-shootout"]');
+    expect(ctl().phase).toBe('full');
+    expect(q('#full-time')).not.toBeNull();
+    expect(ctl().report!.penalties).toEqual(ctl().shootout!.score);
+  });
+
+  it('runs faster at 2x', async () => {
+    await levelCupTie();
+    await click('#screen [data-speed="2"]');
+    await advance(KICK_MS / 2 * 4 + 20);
+    expect(all('#shootout .pk').length).toBeGreaterThanOrEqual(4);
+  });
+
+  it('does not happen in a league match: a draw stays a draw', async () => {
+    await toPreMatch();
+    await click('[data-act="kick-off"]');
+    const st = ctl().session.state;
+    st.score = [1, 1];
+    st.minute = 88;
+    st.phase = 'second-half';
+    await advance(MINUTE_MS * 3);
+    expect(ctl().phase).toBe('full');
+    expect(ctl().shootout).toBeNull();
   });
 });

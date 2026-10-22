@@ -136,6 +136,8 @@ export interface World {
   incomingBids: TransferBid[];
   /** Players the user cannot negotiate with again until the date given, after talks collapsed. */
   transferBlocks: Record<string, string>;
+  /** Players who turned down a new contract, and the day the user may offer them another. Older saves have none. */
+  contractBlocks?: Record<string, string>;
   /** Players without a club. Their `clubId` is `FREE_AGENT`. */
   freeAgents: string[];
 }

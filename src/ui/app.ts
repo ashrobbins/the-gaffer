@@ -14,7 +14,7 @@ import { drawStadium } from './stadiumArt';
 import { startStadiumBuild } from '../engine/finance';
 import { signSponsor } from '../engine/sponsors';
 import { STANDS } from './screens/club';
-import { MatchController } from './match';
+import { MatchController, type MatchSpeed } from './match';
 import { liveMatchHtml, planSheetHtml, preMatchHtml } from './screens/match';
 import { startSession } from '../play';
 import { MATCHES_PER_SEASON } from '../engine/config';
@@ -359,8 +359,9 @@ export class App {
       this.renderSheet(false);
       return true;
     }
+    if (target.closest<HTMLButtonElement>('[data-offer]')?.disabled) return true;
     if (target.closest('[data-offer]')) {
-      const result = withRng(game, (rng) => offerRenewal(game.world, sheet.playerId, sheet.wage, sheet.games, rng));
+      const result = withRng(game, (rng) => offerRenewal(game.world, sheet.playerId, sheet.wage, sheet.games, rng, game.date));
       sheet.result = result.accepted ? 'accepted' : 'refused';
       await this.persist();
       this.render();
@@ -590,11 +591,19 @@ export class App {
       case 'plan':
         m.openPlan();
         return true;
+      case 'skip-shootout':
+        m.skipShootout();
+        return true;
       case 'continue':
         this.match = null;
         this.screen = 'hq';
         this.render();
         return true;
+    }
+    const speed = target.closest<HTMLElement>('[data-speed]');
+    if (speed) {
+      m.setSpeed(Number(speed.dataset.speed) as MatchSpeed);
+      return true;
     }
     if (m.planOpen) {
       if (target.closest('[data-close]')) {
@@ -664,7 +673,7 @@ export class App {
         return renderClubScreen(game, userClub(game), this.club);
       case 'match':
         if (!this.match) return renderMatchDay();
-        return this.match.phase === 'pre' ? preMatchHtml(game, this.match.session) : liveMatchHtml(game, this.match.session, this.match);
+        return this.match.phase === 'pre' ? preMatchHtml(game, this.match.session, this.match.speed) : liveMatchHtml(game, this.match.session, this.match);
     }
   }
 

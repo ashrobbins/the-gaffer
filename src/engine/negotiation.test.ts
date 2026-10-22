@@ -151,7 +151,7 @@ describe('makeOffer', () => {
     expect(n.phase).toBe('fee');
   });
 
-  it('collapses after the third refusal and blocks talks with that player for a week', () => {
+  it('collapses after the third refusal and blocks talks with that player for two weeks', () => {
     const { world, entry } = setup();
     const n = startNegotiation(world, OPEN, entry.playerId);
     const rng = scripted([false, false, false]);
@@ -160,9 +160,9 @@ describe('makeOffer', () => {
     const r = makeOffer(world, n, OPEN, 'low', rng);
     expect(r.result).toBe('collapsed');
     expect(n).toMatchObject({ phase: 'failed', counter: null });
-    expect(world.transferBlocks[entry.playerId]).toBe('2027-01-17');
-    expect(() => startNegotiation(world, '2027-01-12', entry.playerId)).toThrow(/later/);
-    expect(() => startNegotiation(world, '2027-01-17', entry.playerId)).not.toThrow();
+    expect(world.transferBlocks[entry.playerId]).toBe('2027-01-24');
+    expect(() => startNegotiation(world, '2027-01-17', entry.playerId)).toThrow(/later/);
+    expect(() => startNegotiation(world, '2027-01-24', entry.playerId)).not.toThrow();
     expect(() => makeOffer(world, n, OPEN, 'low', rng)).toThrow();
   });
 

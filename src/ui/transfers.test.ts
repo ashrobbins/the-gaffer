@@ -180,7 +180,7 @@ describe('signing a player', () => {
     expect(sheetText()).toContain('Asking wage');
   });
 
-  it('ends the talks after three refusals and blocks that player for a week', async () => {
+  it('ends the talks after three refusals and blocks that player for two weeks', async () => {
     const button = firstBid();
     const id = button.dataset.bid!;
     button.click();
@@ -190,7 +190,7 @@ describe('signing a player', () => {
       await click('#sheet [data-neg-offer="low"]');
     }
     expect(sheetText()).toContain('Talks collapsed');
-    expect(sheetText()).toContain('7 days');
+    expect(sheetText()).toContain('14 days');
     expect(game().world.transferBlocks[id]).toBeDefined();
     await click('#sheet [data-close]');
     const again = all<HTMLButtonElement>('#screen [data-bid]').find((b) => b.dataset.bid === id)!;

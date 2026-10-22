@@ -2,7 +2,7 @@ import { addDays, matchdayDate, summerWeeks } from './engine/calendar';
 import { MATCHES_PER_SEASON } from './engine/config';
 import { autoPlayCup, userCupStatus } from './engine/cup';
 import { createCup } from './engine/cup';
-import { fanBaseAfterSeason } from './engine/finance';
+import { fanBaseAfterSeason, processSummerWeek } from './engine/finance';
 import { repairLineup } from './engine/lineup';
 import { applyMovements, computeMovements, recordHonours, seasonHonours, type SeasonMovements } from './engine/movements';
 import { playPlayoffs } from './engine/playoffs';
@@ -137,10 +137,12 @@ export function advanceSummer(game: Game): boolean {
       game.phase = 'season';
       game.date = matchdayDate(season.year, 0);
       game.review = null;
+      processSummerWeek(world);
       processTransferWeek(world, game.date, rng);
       return true;
     }
     game.date = addDays(game.date, 7);
+    processSummerWeek(world);
     processTransferWeek(world, game.date, rng);
     game.lineup = repairLineup(world, world.userClubId, game.lineup);
     return false;
