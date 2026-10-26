@@ -35,7 +35,7 @@ export function playerSheet(game: Game, club: Club, playerId: string): string {
 
   return `<div class="sh-grab"></div>
     <div class="row2" style="gap:14px;flex-wrap:nowrap;align-items:flex-start"><div style="width:84px;flex:none">${shirt(keeper ? goalkeeperKit(club.kit) : club.kit, 84)}</div>
-      <div style="min-width:0;flex:1"><div class="gold" style="font-size:11px;line-height:1.6">${esc(p.firstName)} ${esc(p.lastName)}${isCaptain ? '<i class="capb">C</i>' : ''}</div>
+      <div style="min-width:0;flex:1"><div class="gold ttl">${esc(p.firstName)} ${esc(p.lastName)}${isCaptain ? '<i class="capb">C</i>' : ''}</div>
         <div class="dim" style="margin-top:6px">${p.position} · age ${p.age}</div><div class="big" style="margin-top:10px">${p.ability}</div></div>${close}</div>
     <div style="margin-top:14px">
       <div class="stat"><span>Playing as</span><span>${slotPosition ?? 'Bench'}</span></div>
@@ -91,17 +91,17 @@ export function contractSheet(game: Game, club: Club, s: Extract<SheetState, { k
   const name = `${esc(p.firstName)} ${esc(p.lastName)}`;
   const blocked = renewalBlockedUntil(game.world, s.playerId, game.date);
   if (s.result === 'accepted') {
-    return `<div class="sh-grab"></div><div class="row2" style="justify-content:space-between;flex-wrap:nowrap"><div class="gold" style="font-size:11px">${name}</div>${close}</div>
+    return `<div class="sh-grab"></div><div class="row2" style="justify-content:space-between;flex-wrap:nowrap"><div class="gold ttl">${name}</div>${close}</div>
       <div class="resp ok" style="margin-top:16px">Agreed. ${esc(p.lastName)} signs for ${p.contractGames} games at ${gbp(p.wage)} a week.</div>
       <div class="row2" style="margin-top:18px"><button class="btn" data-close type="button">Done</button></div>`;
   }
   if (s.confirmRelease) {
-    return `<div class="sh-grab"></div><div class="row2" style="justify-content:space-between;flex-wrap:nowrap"><div class="gold" style="font-size:11px">${name}</div>${close}</div>
+    return `<div class="sh-grab"></div><div class="row2" style="justify-content:space-between;flex-wrap:nowrap"><div class="gold ttl">${name}</div>${close}</div>
       <div class="resp bad" style="margin-top:16px">Let ${esc(p.lastName)} go? He leaves the club straight away and becomes a free agent. This cannot be undone.</div>
       <div class="row2" style="margin-top:18px"><button class="btn" data-release-confirm type="button" style="background:var(--red);color:#fff">Let him go</button><button class="btn ghost" data-release-cancel type="button">Keep him</button></div>`;
   }
   return `<div class="sh-grab"></div>
-    <div class="row2" style="justify-content:space-between;flex-wrap:nowrap;align-items:flex-start"><div style="min-width:0"><div class="mini">Offer new deal</div><div class="gold" style="font-size:11px;line-height:1.6;margin-top:8px">${name}</div><div class="dim" style="margin-top:4px">${p.position} · age ${p.age}</div></div>${close}</div>
+    <div class="row2" style="justify-content:space-between;flex-wrap:nowrap;align-items:flex-start"><div style="min-width:0"><div class="mini">Offer new deal</div><div class="gold ttl" style="margin-top:8px">${name}</div><div class="dim" style="margin-top:4px">${p.position} · age ${p.age}</div></div>${close}</div>
     ${blocked ? `<div class="resp bad" style="margin-top:14px">${s.result === 'refused' ? 'He turned the offer down.' : 'He will not talk about a new deal yet.'} No more offers until ${shortDate(blocked)}.</div>` : s.result === 'refused' ? '<div class="resp bad" style="margin-top:14px">He turned the offer down. Try more money, or a shorter deal.</div>' : ''}
     <div style="margin-top:12px"><div class="stat"><span>Now</span><span>${num(p.wage)} / wk · ${p.contractGames} games left</span></div>
       <div class="stat"><span>Happiness</span>${pips(p.happiness, p.happiness < 3)}</div>
@@ -125,7 +125,7 @@ export function bidSheet(game: Game, club: Club, s: Extract<SheetState, { kind: 
   const fee = neg.phase === 'fee';
   const stepClass = (k: 'fee' | 'wage'): string => (neg.phase === k ? 'on' : (neg.phase === 'wage' && k === 'fee') || neg.phase === 'done' ? 'g' : '');
   const head = `<div class="sh-grab"></div>
-    <div class="row2" style="justify-content:space-between;flex-wrap:nowrap;align-items:flex-start"><div style="min-width:0"><div class="mini">Sign player</div><div class="gold" style="font-size:11px;line-height:1.6;margin-top:8px">${esc(p.firstName)} ${esc(p.lastName)}</div><div class="dim" style="margin-top:4px">${p.position} · age ${p.age} · OVR ${p.ability} · ${esc(seller)}</div></div>${close}</div>
+    <div class="row2" style="justify-content:space-between;flex-wrap:nowrap;align-items:flex-start"><div style="min-width:0"><div class="mini">Sign player</div><div class="gold ttl" style="margin-top:8px">${esc(p.firstName)} ${esc(p.lastName)}</div><div class="dim" style="margin-top:4px">${p.position} · age ${p.age} · OVR ${p.ability} · ${esc(seller)}</div></div>${close}</div>
     <div class="row2" style="gap:6px;margin-top:14px"><span class="pill ${stepClass('fee')}">1 Club fee</span><span class="pill ${stepClass('wage')}">2 Player wage</span></div>`;
   const message = s.message ? `<div class="resp ${s.message.ok ? 'ok' : 'bad'}">${esc(s.message.text)}</div>` : '';
 
@@ -178,7 +178,7 @@ export function saleCounterSheet(game: Game, s: Extract<SheetState, { kind: 'sal
   const done = !bid;
   const p = game.world.players[(bid ?? { playerId: '' }).playerId] as Player | undefined;
   const buyer = bid ? (game.world.clubs[bid.buyerClubId] as Club).name : '';
-  const head = `<div class="sh-grab"></div><div class="row2" style="justify-content:space-between;flex-wrap:nowrap;align-items:flex-start"><div style="min-width:0"><div class="mini">Counter their offer</div>${p ? `<div class="gold" style="font-size:11px;line-height:1.6;margin-top:8px">${esc(p.firstName)} ${esc(p.lastName)}</div><div class="dim" style="margin-top:4px">${p.position} · age ${p.age} · OVR ${p.ability}</div>` : ''}</div>${close}</div>`;
+  const head = `<div class="sh-grab"></div><div class="row2" style="justify-content:space-between;flex-wrap:nowrap;align-items:flex-start"><div style="min-width:0"><div class="mini">Counter their offer</div>${p ? `<div class="gold ttl" style="margin-top:8px">${esc(p.firstName)} ${esc(p.lastName)}</div><div class="dim" style="margin-top:4px">${p.position} · age ${p.age} · OVR ${p.ability}</div>` : ''}</div>${close}</div>`;
   const message = s.message ? `<div class="resp ${s.message.ok ? 'ok' : 'bad'}">${esc(s.message.text)}</div>` : '';
   if (done || !bid) return `${head}${message}<div class="row2" style="margin-top:18px"><button class="btn" data-close type="button">Done</button></div>`;
   const asks = [1.1, 1.25, 1.4].map((f) => Math.round((bid.fee * f) / 100) * 100);

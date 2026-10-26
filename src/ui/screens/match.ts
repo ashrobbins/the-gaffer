@@ -391,7 +391,7 @@ export function planSheetHtml(game: Game, session: MatchSession, view: MatchView
       : `<button class="btn" data-act="resume" ${forced ? 'disabled' : ''} type="button">Resume match</button>`;
 
   return `<div class="sh-grab"></div>
-    <div class="row2" style="justify-content:space-between;flex-wrap:nowrap;align-items:flex-start"><div><div class="gold" style="font-size:11px;line-height:1.6">Change your plan</div><div class="dim" style="margin-top:4px">${st.minute}' &middot; ${st.score[0]}-${st.score[1]} &middot; subs used ${side.subsUsed}/${MATCH.maxSubs}</div></div><button class="btn ghost sm" data-close aria-label="Close" type="button">X</button></div>
+    <div class="row2" style="justify-content:space-between;flex-wrap:nowrap;align-items:flex-start"><div><div class="gold ttl">Change your plan</div><div class="dim" style="margin-top:4px">${st.minute}' &middot; ${st.score[0]}-${st.score[1]} &middot; subs used ${side.subsUsed}/${MATCH.maxSubs}</div></div><button class="btn ghost sm" data-close aria-label="Close" type="button">X</button></div>
     ${forced ? `<div class="inotice" id="forced-notice"><i class="cross"></i>${esc(player(game, forced).firstName)} ${esc(player(game, forced).lastName)} is injured and cannot continue. Pick a replacement from the bench.</div>` : ''}
     ${view.notice ? `<div class="resp bad" id="plan-notice" style="margin-top:12px">${esc(view.notice)}</div>` : ''}
     <span class="lab" style="margin-top:14px">Shape</span>

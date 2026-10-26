@@ -32,7 +32,7 @@ describe('installable app', () => {
 
   it('keeps the font on the device instead of fetching it, so it works offline', () => {
     expect(read('index.html')).not.toContain('fonts.googleapis.com');
-    expect(read('src/main.ts')).toContain('@fontsource/press-start-2p');
+    expect(read('src/main.ts')).toContain('@fontsource/barlow-condensed');
   });
 
   it('has a service worker the build can fill in with the files to store', () => {

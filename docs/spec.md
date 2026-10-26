@@ -65,7 +65,7 @@ Retro pixel-art football management game. Mobile first. The visual reference is 
 - Sticky header and nav, content scrolls beneath.
 - Bottom sheets for player details, contract offers, signing negotiations and the match plan. They scroll internally and always open at the top.
 - Drag and drop (pointer events) for lineups and substitutes.
-- Press Start 2P everywhere. Dark pixel look. The primary colour of the user's club tints the frame subtly.
+- The look is "Floodlit": live TV graphics. Barlow Condensed (bold italic caps for headings and numbers) and Barlow for text, dark glass panels with angled corners, a lime accent, and vector shirts and badges in the clubs' colours. Fonts are bundled so the game works offline.
 
 ## Engine notes (decisions made while building)
 - Fixtures: the second half of the season replays the first half with venues swapped, in reverse order, so no club has more than three home or three away matches in a row.

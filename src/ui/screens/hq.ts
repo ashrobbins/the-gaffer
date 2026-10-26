@@ -92,10 +92,10 @@ export function renderHq(game: Game): string {
     const home = game.world.clubs[next.homeId] as Club;
     const away = game.world.clubs[next.awayId] as Club;
     fixtureBox = `<div class="box"><h2>Next fixture <small>${esc(next.label)} · ${shortDate(next.date)}</small></h2>
-        <div class="grid" style="grid-template-columns:1fr auto 1fr;align-items:start;gap:10px;text-align:center">
-          <div class="fixture-team">${shirt(home.kit, 76)}<div style="margin-top:8px">${esc(home.name)}</div><div class="mini">Home</div></div>
-          <div class="big">V</div>
-          <div class="fixture-team">${shirt(away.kit, 76)}<div style="margin-top:8px">${esc(away.name)}</div><div class="mini">Away</div></div>
+        <div class="fx" style="--h:${home.kit.primary};--a:${away.kit.primary}">
+          <div class="fixture-team">${shirt(home.kit, 92)}<div class="fn">${esc(home.name)}</div><div class="mini">Home</div></div>
+          <div class="vs">V</div>
+          <div class="fixture-team">${shirt(away.kit, 92)}<div class="fn">${esc(away.name)}</div><div class="mini">Away</div></div>
         </div>
         <p class="note center" style="margin-top:12px">Played at ${esc(home.stadium.name)}</p>
         <div class="row2" style="margin-top:16px"><button class="btn" data-act="go-match" type="button">Go to match</button></div>
@@ -111,7 +111,7 @@ export function renderHq(game: Game): string {
     <div class="grid" style="align-content:start;gap:18px">${fixtureBox}${review}</div>
     <div class="grid" style="align-content:start;gap:18px">
       <div class="box"><h2>Standing <small>${DIVISION_NAMES[club.division]}</small></h2>
-        <div class="big">${row && row.played > 0 ? `${ordinal(position)}<span style="font-size:9px" class="dim"> of 20</span>` : 'Day one'}</div>
+        <div class="big">${row && row.played > 0 ? `${ordinal(position)}<span style="font-size:13px" class="dim"> of 20</span>` : 'Day one'}</div>
         <div class="stat" style="margin-top:8px"><span>Played</span><span>${row?.played ?? 0} of ${MATCHES_PER_SEASON}</span></div>
         <div class="stat"><span>Points</span><span class="gold">${row?.points ?? 0}</span></div>
         <div class="stat"><span>Promotion</span><span class="grn">Top 2, play-offs 3-4</span></div>

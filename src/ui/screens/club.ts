@@ -46,9 +46,9 @@ function stadiumTab(game: Game, club: Club, state: ClubScreenState): string {
     const extra = extraGatePerHomeMatch(club, st.seats);
     const confirming = state.confirmingBuild === i;
     const blocked = !!building || cost > club.cash;
-    return `<div class="row2" style="padding:9px 0;border-bottom:1px dotted #26336a;flex-wrap:nowrap;justify-content:space-between"><div style="min-width:0"><div>${st.name}</div>
-        <div class="dim" style="font-size:8px">${num(capacity)} seats → ${num(capacity + st.seats)} <span class="grn">(+${num(st.seats)})</span></div>
-        <div class="dim" style="font-size:8px">${extra > 0 ? `<span class="grn">+${gbp(extra)}</span> per home game at today's crowds` : 'No extra gate: the ground is not full'}</div></div>
+    return `<div class="row2" style="padding:9px 0;border-bottom:1px solid rgba(255,255,255,.1);flex-wrap:nowrap;justify-content:space-between"><div style="min-width:0"><div>${st.name}</div>
+        <div class="dim" style="font-size:12px">${num(capacity)} seats → ${num(capacity + st.seats)} <span class="grn">(+${num(st.seats)})</span></div>
+        <div class="dim" style="font-size:12px">${extra > 0 ? `<span class="grn">+${gbp(extra)}</span> per home game at today's crowds` : 'No extra gate: the ground is not full'}</div></div>
       <button class="btn sm ${confirming ? '' : blocked ? 'faded' : ''}" data-build="${i}" ${blocked ? 'disabled' : ''} type="button">${confirming ? `Confirm ${gbp(cost)}` : gbp(cost)}</button></div>`;
   }).join('');
   return `<div class="grid" style="gap:18px"><canvas class="art" data-cap="${capacity}"></canvas>
@@ -81,7 +81,7 @@ function offerRow(game: Game, club: Club, offer: SponsorOffer): string {
   const action = status.unlocked
     ? `<button class="btn sm ${free ? '' : 'faded'}" data-sponsor-sign="${esc(offer.id)}" ${free ? '' : 'disabled'} type="button">${free ? 'Sign' : 'Sign (needs free slot)'}</button>`
     : `<span>${segs((status.current / status.target) * 100, 10, 'gd')} ${Math.min(status.current, status.target)}/${status.target}</span>`;
-  return `<div style="padding:10px 0;border-bottom:1px dotted #26336a"><div class="row2" style="justify-content:space-between"><span style="font-size:11px">${esc(offer.name)}</span><span class="${status.unlocked ? 'grn' : 'dim'}">${gbp(offer.perMatch)} / match</span></div>
+  return `<div style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,.1)"><div class="row2" style="justify-content:space-between"><span class="ttl2">${esc(offer.name)}</span><span class="${status.unlocked ? 'grn' : 'dim'}">${gbp(offer.perMatch)} / match</span></div>
     <div class="row2" style="justify-content:space-between;margin-top:4px"><span class="dim">${description}</span>${action}</div></div>`;
 }
 
@@ -90,10 +90,10 @@ function sponsorsTab(game: Game, club: Club): string {
     const deal = club.sponsors[i];
     const open = i < club.sponsorSlots;
     const body = deal
-      ? `<div style="margin:16px auto;width:56px">${shirt(club.kit, 56)}</div><div class="gold" style="font-size:11px">${esc(deal.name)}</div><div class="grn">${gbp(deal.perMatch)} per match</div>`
+      ? `<div style="margin:16px auto;width:56px">${shirt(club.kit, 56)}</div><div class="gold ttl">${esc(deal.name)}</div><div class="grn">${gbp(deal.perMatch)} per match</div>`
       : open
-        ? `<div style="margin:16px auto;width:56px;height:56px;border:3px dashed var(--line)"></div><div class="dim" style="font-size:11px">Free slot</div><div class="dim">Sign an offer below</div>`
-        : `<div style="margin:16px auto;width:56px;height:56px;border:3px solid var(--line)"></div><div class="dim" style="font-size:11px">Locked</div><div class="dim">Unlocks on promotion to ${DIVISION_NAMES[DIVISION_FOR_SLOT(i)]}</div>`;
+        ? `<div style="margin:16px auto;width:56px;height:56px;border:3px dashed var(--line)"></div><div class="dim ttl2">Free slot</div><div class="dim">Sign an offer below</div>`
+        : `<div style="margin:16px auto;width:56px;height:56px;border:3px solid var(--line)"></div><div class="dim ttl2">Locked</div><div class="dim">Unlocks on promotion to ${DIVISION_NAMES[DIVISION_FOR_SLOT(i)]}</div>`;
     return `<div class="box ${deal || open ? '' : 'lock'}" style="text-align:center"><div class="mini">Slot ${i + 1} · ${slot}</div>${body}</div>`;
   }).join('');
   const offers = game.world.sponsorOffers.map((o) => offerRow(game, club, o)).join('');

@@ -55,7 +55,7 @@ export function mountNewGame(root: HTMLElement, onCreate: (club: NewClubOptions)
           <div class="row2" style="gap:22px;flex-wrap:nowrap">
             <div id="preview-shirt"></div>
             <div style="min-width:0">
-              <div class="row2" style="gap:10px;flex-wrap:nowrap"><span id="preview-crest"></span><span class="big" style="font-size:13px;overflow-wrap:anywhere" id="preview-name"></span></div>
+              <div class="row2" style="gap:10px;flex-wrap:nowrap"><span id="preview-crest"></span><span class="big" style="font-size:20px;overflow-wrap:anywhere" id="preview-name"></span></div>
               <div class="dim" style="margin-top:8px">Home: <span class="gold" id="preview-stadium"></span> · 4,200 seats</div>
               <div class="dim">Kit: <span id="preview-style"></span></div>
             </div>
