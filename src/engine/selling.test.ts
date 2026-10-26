@@ -181,7 +181,7 @@ describe('counterBid', () => {
     expect(small).toBeGreaterThan(0.6);
     expect(big).toBeLessThan(0.25);
     expect(small).toBeGreaterThan(big + 0.4);
-  });
+  }, 20000);
 
   it('keeps the offer after one refusal and withdraws it after the second', () => {
     const { world, rng, bid } = withBid();

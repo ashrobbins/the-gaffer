@@ -1,9 +1,11 @@
 import { teamRatingText } from '../pitch';
 import { FORMATIONS, FORMATION_IDS, PLAY_STYLES } from '../../engine/formations';
 import { lineupRating } from '../../engine/lineup';
-import { onPitch, pendingForcedSub, teamProfile } from '../../engine/match';
+import { pendingForcedSub, teamProfile } from '../../engine/match';
 import type { MatchEvent, MatchState, PlayStyle, Side } from '../../engine/matchTypes';
 import { positionFit } from '../../engine/positions';
+import { effectiveRating } from '../../engine/formations';
+import type { Position } from '../../engine/types';
 import { clubForm } from '../../engine/season';
 import { MATCH } from '../../engine/config';
 import { commentary } from '../../engine/commentary';
@@ -12,10 +14,8 @@ import type { Game } from '../../game';
 import type { MatchReport, MatchSession } from '../../play';
 import { textOn } from '../colour';
 import { esc, gbp, num, shortDate } from '../format';
-import { conditionIcons, form5, positionGroup, segs, surname } from '../icons';
-import { goalkeeperKit } from '../kits';
+import { form5, positionGroup, segs, surname } from '../icons';
 import { benchHtml, pitchHtml, pitchLayout } from '../pitch';
-import { shirt } from '../sprites';
 
 export const STYLE_INFO: Record<PlayStyle, [string, string]> = {
   'gung-ho': ['Gung ho', 'All out attack'],
@@ -35,6 +35,10 @@ export interface MatchView {
   notice: string | null;
   report: MatchReport | null;
   speed: number;
+  /** The position on the pitch the user has tapped, to take that player off or move him. */
+  selectedSlot: number | null;
+  /** A substitution waiting to be confirmed: which position, and who comes on. */
+  pending: { slot: number; benchId: string } | null;
   shootout: { kicks: { side: Side; scored: boolean; playerId: string }[]; score: [number, number]; shown: number } | null;
 }
 
@@ -225,71 +229,176 @@ export function liveMatchHtml(game: Game, session: MatchSession, view: MatchView
 // The change-your-plan sheet
 // ---------------------------------------------------------------------------------------------------------------
 
-function livePitch(game: Game, session: MatchSession): string {
-  const st = session.state;
-  const side = st.sides[session.userSide];
-  const me = club(game, side.clubId);
-  const layout = pitchLayout(side.formation);
-  const positions = FORMATIONS[side.formation];
-  const tokens = side.slots
-    .map((id, i) => {
-      if (!id) return '';
-      const p = player(game, id);
-      const pm = st.players[id]!;
-      const spot = layout[i] as { x: number; y: number };
-      const fit = positionFit(p.position, positions[i] as never);
-      return `<button class="pl ${fit.kind}" type="button" data-slot="${i}" style="left:${spot.x}%;top:${spot.y}%" aria-label="${esc(p.firstName)} ${esc(p.lastName)}, ${positions[i]}">
-        <span class="shw">${shirt(positions[i] === 'GK' ? goalkeeperKit(me.kit) : me.kit, 100)}${conditionIcons({ fatigue: pm.fatigue, injury: pm.injury })}</span>
-        ${fit.kind !== 'natural' ? `<i class="fit ${fit.kind === 'adjacent' ? 'adj' : 'alien'}">!</i>` : ''}
-        <span class="tag">${surname(p)}</span><span class="ov">${Math.round(p.ability * fit.multiplier)}</span></button>`;
-    })
-    .join('');
-  return `<div class="chips" style="margin-bottom:12px">${FORMATION_IDS.map(
-    (f) => `<button class="pill ${f === side.formation ? 'on' : ''}" data-formation="${f}" type="button">${f}</button>`,
-  ).join('')}</div>
-    <div class="pitch">
-      <div class="ln" style="left:50%;top:-60px;width:120px;height:120px;border-radius:50%;transform:translateX(-50%)"></div>
-      <div class="ln" style="left:22%;right:22%;bottom:-2px;height:21%"></div>
-      <div class="ln" style="left:36%;right:36%;bottom:-2px;height:9%"></div>${tokens}</div>
-    <div class="row2 note" style="justify-content:center;margin-top:12px"><span class="pill o">Tired 50%+</span><span class="pill r">Injury risk 80%+</span><span class="pill y">! Adjacent -14%</span><span class="pill r">! Alien -40%</span></div>`;
+/** The rating a player would play at in a position, at his current tiredness. */
+function ratingIn(p: Player, position: Position, fatigue: number): number {
+  return Math.round(effectiveRating(p, position, fatigue));
 }
 
-function liveBench(game: Game, session: MatchSession): string {
+interface XiRow {
+  slot: number;
+  player: Player;
+  position: Position;
+  fatigue: number;
+  incoming: boolean;
+}
+
+interface BenchRow {
+  player: Player;
+  fatigue: number;
+  /** The player the staged change takes off: he sits on the bench but cannot come back. */
+  off: boolean;
+}
+
+/** The team and bench as they would be once a staged change is confirmed, or as they are now. */
+function lineupView(game: Game, session: MatchSession, view: MatchView): { xi: XiRow[]; bench: BenchRow[] } {
   const st = session.state;
   const side = st.sides[session.userSide];
-  const me = club(game, side.clubId);
-  const cards = side.bench
-    .map((id, i) => {
-      const p = player(game, id);
-      const pm = st.players[id]!;
-      const injured = !!p.injury;
-      return `<button class="bn ${injured ? 'off' : ''}" type="button" ${injured ? 'disabled' : `data-bn="${i}"`}>
-        <i class="posb ${positionGroup(p.position)}">${p.position}</i><span class="shw">${shirt(p.position === 'GK' ? goalkeeperKit(me.kit) : me.kit, 56)}${conditionIcons({ fatigue: pm.fatigue, injury: p.injury })}</span>
-        <span class="nm">${surname(p)}</span><span class="ov">${p.ability}</span>${injured ? `<span class="inw">OUT ${p.injury!.weeks}W</span>` : segs(pm.fatigue, 5, pm.fatigue > 45 ? 'bad' : '')}</button>`;
+  const pending = view.pending;
+  const xi: XiRow[] = [];
+  side.slots.forEach((id, i) => {
+    if (!id) return;
+    const slotId = pending && pending.slot === i ? pending.benchId : id;
+    const pm = st.players[slotId]!;
+    xi.push({ slot: i, player: player(game, slotId), position: FORMATIONS[side.formation][i] as Position, fatigue: pm.fatigue, incoming: slotId !== id });
+  });
+  const bench: BenchRow[] = side.bench.map((id) => {
+    const swappedIn = pending?.benchId === id;
+    const offId = swappedIn ? (side.slots[pending!.slot] as string) : id;
+    return { player: player(game, offId), fatigue: st.players[offId]!.fatigue, off: swappedIn };
+  });
+  return { xi, bench };
+}
+
+const teamRating = (rows: readonly XiRow[]): number => Math.round(rows.reduce((sum, r) => sum + effectiveRating(r.player, r.position, r.fatigue), 0) / Math.max(1, rows.length));
+
+/** A small pitch of plain coloured dots, one for each player. Tapping a dot picks that player. */
+function miniPitch(session: MatchSession, view: MatchView, xi: readonly XiRow[]): string {
+  const side = session.state.sides[session.userSide];
+  const layout = pitchLayout(side.formation);
+  const dots = xi
+    .map((r) => {
+      const spot = layout[r.slot] as { x: number; y: number };
+      const cls = ['mdot', positionGroup(r.player.position), view.selectedSlot === r.slot ? 'sel' : '', r.incoming ? 'inc' : '', r.fatigue > 50 ? 'tired' : '']
+        .filter(Boolean)
+        .join(' ');
+      return `<button class="${cls}" type="button" data-pick-slot="${r.slot}" style="left:${spot.x}%;top:${spot.y}%" aria-label="${esc(r.player.firstName)} ${esc(r.player.lastName)}, ${r.position}"></button>`;
     })
     .join('');
-  const left = MATCH.maxSubs - side.subsUsed;
-  return `<div class="benchg">${cards}</div><div class="note" style="margin-top:12px">Drag a bench player onto the pitch to make a substitution. Players already taken off cannot return. ${left > 0 ? `${left} left.` : 'None left, except to replace an injured player.'}</div>`;
+  return `<div class="mpitch">
+      <div class="ln" style="left:50%;top:-30px;width:60px;height:60px;border-radius:50%;transform:translateX(-50%)"></div>
+      <div class="ln" style="left:25%;right:25%;bottom:-2px;height:22%"></div>${dots}</div>
+    <div class="row2 note" style="justify-content:center;gap:12px;margin-top:8px"><span><i class="mdot-key GK"></i>GK</span><span><i class="mdot-key DEF"></i>DEF</span><span><i class="mdot-key MID"></i>MID</span><span><i class="mdot-key ATT"></i>ATT</span></div>`;
+}
+
+const fitClass = (kind: string): string => (kind === 'natural' ? 'dim' : kind === 'adjacent' ? 'amb' : 'red');
+
+function xiTable(xi: readonly XiRow[], view: MatchView, forcedSlot: number): string {
+  const rows = xi
+    .map((r) => {
+      const fit = positionFit(r.player.position, r.position);
+      const picked = view.selectedSlot === r.slot;
+      const cls = ['row', picked ? 'sel' : '', r.incoming ? 'in' : '', view.selectedSlot !== null && !picked ? 'faded' : ''].filter(Boolean).join(' ');
+      const note = r.incoming ? '<span class="grn"> IN</span>' : r.slot === forcedSlot ? '<span class="red"> HURT</span>' : r.fatigue > 50 ? `<span class="amb"> ${Math.round(r.fatigue)}%</span>` : '';
+      return `<tr class="${cls}" data-pick-slot="${r.slot}"><td><i class="posb ${positionGroup(r.player.position)}">${r.player.position}</i></td><td>${esc(r.player.firstName[0] as string)}.${esc(r.player.lastName)}${note}</td><td class="${fitClass(fit.kind)}">${r.position}</td><td class="n wht">${r.player.ability}</td><td>${segs(r.fatigue, 6, r.fatigue > 80 ? 'bad' : r.fatigue > 50 ? 'warn' : '')}</td></tr>`;
+    })
+    .join('');
+  return `<div class="tw"><table class="mt"><thead><tr><th>Pos</th><th>Name</th><th>Slot</th><th class="n">OVR</th><th>Fatigue</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+function benchTable(bench: readonly BenchRow[], off: boolean): string {
+  const rows = bench
+    .map((r) => {
+      const hurt = !!r.player.injury;
+      const cls = ['row', r.off ? 'off' : '', hurt ? 'hurt' : '', off ? 'faded' : ''].filter(Boolean).join(' ');
+      const note = r.off ? '<span class="red"> OFF, CANNOT RETURN</span>' : hurt ? `<span class="red"> OUT ${r.player.injury!.weeks}W</span>` : '';
+      const attrs = r.off || hurt ? '' : ` data-pick-bench="${r.player.id}"`;
+      return `<tr class="${cls}"${attrs}><td><i class="posb ${positionGroup(r.player.position)}">${r.player.position}</i></td><td>${esc(r.player.firstName[0] as string)}.${esc(r.player.lastName)}${note}</td><td class="n wht">${r.player.ability}</td><td>${segs(r.fatigue, 6, r.fatigue > 80 ? 'bad' : r.fatigue > 50 ? 'warn' : '')}</td></tr>`;
+    })
+    .join('');
+  return `<div class="tw"><table class="mt"><thead><tr><th>Pos</th><th>Name</th><th class="n">OVR</th><th>Fatigue</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+/** Who could come on for the picked player, with the rating each would have in his place, best first. */
+function candidatesTable(game: Game, session: MatchSession, view: MatchView, canSub: boolean): string {
+  const st = session.state;
+  const side = st.sides[session.userSide];
+  const slot = view.selectedSlot as number;
+  const position = FORMATIONS[side.formation][slot] as Position;
+  const offId = side.slots[slot] as string;
+  const off = player(game, offId);
+  const current = ratingIn(off, position, st.players[offId]!.fatigue);
+  const list = side.bench
+    .map((id) => {
+      const p = player(game, id);
+      const fatigue = st.players[id]!.fatigue;
+      return { p, fatigue, rating: ratingIn(p, position, fatigue), hurt: !!p.injury };
+    })
+    .sort((a, b) => Number(a.hurt) - Number(b.hurt) || b.rating - a.rating);
+  const best = list.find((c) => !c.hurt)?.p.id;
+  const rows = list
+    .map((c) => {
+      const delta = c.rating - current;
+      const cls = ['row', c.p.id === best ? 'best' : '', c.hurt ? 'hurt' : '', !canSub ? 'faded' : ''].filter(Boolean).join(' ');
+      const tone = delta > 0 ? 'grn' : delta < 0 ? 'red' : 'dim';
+      const attrs = c.hurt ? '' : ` data-pick-bench="${c.p.id}"`;
+      return `<tr class="${cls}"${attrs}><td><i class="posb ${positionGroup(c.p.position)}">${c.p.position}</i></td><td>${esc(c.p.firstName[0] as string)}.${esc(c.p.lastName)}${c.p.id === best && canSub ? ' <span class="pill g">BEST</span>' : ''}${c.hurt ? ` <span class="red">OUT ${c.p.injury!.weeks}W</span>` : ''}</td><td class="n ${c.hurt ? 'dim' : tone}">${c.hurt ? '-' : c.rating}</td><td class="n ${c.hurt ? 'dim' : tone}">${c.hurt ? '' : (delta > 0 ? '+' : '') + delta}</td><td>${segs(c.fatigue, 6, c.fatigue > 80 ? 'bad' : c.fatigue > 50 ? 'warn' : '')}</td></tr>`;
+    })
+    .join('');
+  return `<div class="tw"><table class="mt"><thead><tr><th>Pos</th><th>Name</th><th class="n">In slot</th><th class="n">+/-</th><th>Fatigue</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 export function planSheetHtml(game: Game, session: MatchSession, view: MatchView): string {
   const st = session.state;
   const side = st.sides[session.userSide];
   const forced = pendingForcedSub(st) === session.userSide ? side.forcedSub : null;
-  const tired = onPitch(game.world, st, session.userSide)
-    .filter((x) => x.position !== 'GK')
-    .sort((a, b) => b.fatigue - a.fatigue)
-    .slice(0, 3);
-  return `<div class="sh-grab"></div>
-    <div class="row2" style="justify-content:space-between;flex-wrap:nowrap;align-items:flex-start"><div><div class="gold" style="font-size:11px;line-height:1.6">Change your plan</div><div class="dim" style="margin-top:4px">${st.minute}' · ${st.score[0]}-${st.score[1]} · subs used ${side.subsUsed}/${MATCH.maxSubs}</div></div><button class="btn ghost sm" data-close aria-label="Close" type="button">X</button></div>
-    ${forced ? `<div class="inotice" id="forced-notice"><i class="cross"></i>${esc(player(game, forced).firstName)} ${esc(player(game, forced).lastName)} is injured and cannot continue. Drag a substitute onto the pitch to replace him.</div>` : ''}
-    ${view.notice ? `<div class="resp bad" id="plan-notice" style="margin-top:12px">${esc(view.notice)}</div>` : ''}
-    <span class="lab" style="margin-top:16px">Play style</span>
-    <div class="styles">${PLAY_STYLES.map((s) => `<button data-style="${s}" class="${side.style === s ? 'on' : ''}" type="button">${STYLE_INFO[s][0]}<small>${STYLE_INFO[s][1]}</small></button>`).join('')}</div>
-    <span class="lab">Most tired</span>
-    ${tired.map((t) => `<div class="stat"><span><span class="dim">${t.position}</span> ${esc(t.player.firstName)} ${esc(t.player.lastName)}</span><span>${segs(t.fatigue, 8, t.fatigue > 50 ? 'bad' : t.fatigue > 30 ? 'warn' : '')} ${Math.round(t.fatigue)}%${t.fatigue > 80 ? ' <span class="pill r">Injury risk</span>' : ''}</span></div>`).join('')}
-    <h2 class="h2" style="margin:18px 0 10px">Pitch <small>drag to swap</small></h2>${livePitch(game, session)}
-    <h2 class="h2" style="margin:18px 0 10px">Substitutes <small>${MATCH.maxSubs - side.subsUsed} left</small></h2>${liveBench(game, session)}
-    <div class="row2" style="margin-top:18px"><button class="btn" data-act="resume" ${forced ? 'disabled' : ''} type="button">Resume match</button></div>`;
-}
+  const forcedSlot = forced ? side.slots.indexOf(forced) : -1;
+  const left = MATCH.maxSubs - side.subsUsed;
+  const canSub = left > 0 || forced !== null;
+  const { xi, bench } = lineupView(game, session, view);
+  const picked = view.selectedSlot !== null ? player(game, side.slots[view.selectedSlot] as string) : null;
+  const pending = view.pending;
+  const slotPosition = view.selectedSlot !== null ? (FORMATIONS[side.formation][view.selectedSlot] as Position) : null;
 
+  let middle: string;
+  if (pending && picked && slotPosition) {
+    const incoming = player(game, pending.benchId);
+    const before = teamRating(lineupView(game, session, { ...view, pending: null }).xi);
+    const after = teamRating(xi);
+    const inRating = ratingIn(incoming, slotPosition, st.players[pending.benchId]!.fatigue);
+    const outRating = ratingIn(picked, slotPosition, st.players[picked.id]!.fatigue);
+    middle = `<div class="staged" id="staged">
+        <div class="stat"><span class="grn">ON</span><span>${esc(incoming.firstName)} ${esc(incoming.lastName)} <span class="dim">${incoming.position} playing ${slotPosition}</span> <b class="gold">${inRating}</b></span></div>
+        <div class="stat"><span class="red">OFF</span><span>${esc(picked.firstName)} ${esc(picked.lastName)} <span class="dim">${Math.round(st.players[picked.id]!.fatigue)}% tired</span> <b class="red">${outRating}</b></span></div>
+        <div class="stat"><span class="dim">Team rating</span><span>${before} <span class="dim">&rarr;</span> <b class="${after >= before ? 'grn' : 'red'}">${after}</b></span></div>
+      </div>
+      <h2 class="h2" style="margin:16px 0 8px">Starting XI <small>after the change</small></h2>${xiTable(xi, view, forcedSlot)}
+      <h2 class="h2" style="margin:16px 0 8px">Bench <small>${left - (forced ? 0 : 1)} subs left after this</small></h2>${benchTable(bench, false)}`;
+  } else if (picked) {
+    middle = `<div class="picked" id="picked"><b>${esc(picked.firstName)} ${esc(picked.lastName)}</b> <span class="dim">${picked.position} playing ${slotPosition}</span>
+        <div class="dim" style="margin-top:4px">${Math.round(st.players[picked.id]!.fatigue)}% tired &middot; plays at <b class="${st.players[picked.id]!.fatigue > 50 ? 'red' : 'grn'}">${ratingIn(picked, slotPosition as Position, st.players[picked.id]!.fatigue)}</b> right now</div></div>
+      <h2 class="h2" style="margin:16px 0 8px">Who comes on for ${esc(picked.lastName)}? <small>${canSub ? 'best fit first' : 'no subs left'}</small></h2>${candidatesTable(game, session, view, canSub)}
+      <h2 class="h2" style="margin:16px 0 8px">Starting XI <small>tap another to swap positions</small></h2>${xiTable(xi, view, forcedSlot)}`;
+  } else {
+    middle = `<h2 class="h2" style="margin:16px 0 8px">Starting XI <small>rating ${teamRating(xi)}</small></h2>${xiTable(xi, view, forcedSlot)}
+      <h2 class="h2" style="margin:16px 0 8px">Bench <small>${left} subs left</small></h2>${benchTable(bench, true)}
+      <div class="note" style="margin-top:8px">Tap a player, on the pitch or in the table, to take him off or swap his position.</div>`;
+  }
+
+  const bar = pending
+    ? `<button class="btn ghost" data-act="sub-undo" type="button">Undo</button><button class="btn" data-act="sub-confirm" type="button">Confirm sub</button>`
+    : picked && !forced
+      ? `<button class="btn ghost" data-act="sub-cancel" type="button">Cancel</button><button class="btn ghost" disabled type="button">Pick a player</button>`
+      : `<button class="btn" data-act="resume" ${forced ? 'disabled' : ''} type="button">Resume match</button>`;
+
+  return `<div class="sh-grab"></div>
+    <div class="row2" style="justify-content:space-between;flex-wrap:nowrap;align-items:flex-start"><div><div class="gold" style="font-size:11px;line-height:1.6">Change your plan</div><div class="dim" style="margin-top:4px">${st.minute}' &middot; ${st.score[0]}-${st.score[1]} &middot; subs used ${side.subsUsed}/${MATCH.maxSubs}</div></div><button class="btn ghost sm" data-close aria-label="Close" type="button">X</button></div>
+    ${forced ? `<div class="inotice" id="forced-notice"><i class="cross"></i>${esc(player(game, forced).firstName)} ${esc(player(game, forced).lastName)} is injured and cannot continue. Pick a replacement from the bench.</div>` : ''}
+    ${view.notice ? `<div class="resp bad" id="plan-notice" style="margin-top:12px">${esc(view.notice)}</div>` : ''}
+    <span class="lab" style="margin-top:14px">Shape</span>
+    <div class="chips" style="margin-bottom:10px">${FORMATION_IDS.map((f) => `<button class="pill ${f === side.formation ? 'on' : ''}" data-formation="${f}" type="button">${f}</button>`).join('')}</div>
+    ${miniPitch(session, view, xi)}
+    ${middle}
+    <span class="lab" style="margin-top:20px">Play style</span>
+    <div class="styles">${PLAY_STYLES.map((s) => `<button data-style="${s}" class="${side.style === s ? 'on' : ''}" type="button">${STYLE_INFO[s][0]}<small>${STYLE_INFO[s][1]}</small></button>`).join('')}</div>
+    <div class="kobar planbar" id="plan-bar">${bar}</div>`;
+}

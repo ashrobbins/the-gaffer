@@ -50,6 +50,16 @@ async function drag(from: HTMLElement, to: HTMLElement): Promise<void> {
   await flush();
 }
 
+const tapSlot = (i: number): Promise<void> => click(`#sheet [data-pick-slot="${i}"]`);
+const sideNow = () => ctl().session.state.sides[ctl().userSide];
+const firstFitBench = (): string => sideNow().bench.find((id) => !game().world.players[id]!.injury)!;
+/** Takes a player off and a bench player on in the plan sheet: tap the position, tap the replacement, confirm. */
+async function makeSub(slot: number, benchId: string = firstFitBench()): Promise<void> {
+  await tapSlot(slot);
+  await click(`#sheet [data-pick-bench="${benchId}"]`);
+  await click('#sheet [data-act="sub-confirm"]');
+}
+
 /** Plays on, resuming at half time and stopping at the plan sheet, until the condition holds. */
 async function playUntil(done: () => boolean, maxMs = 600_000): Promise<void> {
   for (let t = 0; t < maxMs && !done(); t += 100) {
@@ -58,9 +68,7 @@ async function playUntil(done: () => boolean, maxMs = 600_000): Promise<void> {
       const forced = !!q('#forced-notice');
       if (forced) {
         const slot = ctl().session.state.sides[ctl().userSide].forcedSub;
-        const idx = ctl().session.state.sides[ctl().userSide].slots.indexOf(slot);
-        const bench = all('#sheet .bn[data-bn]')[0]!;
-        await drag(bench, q(`#sheet .pl[data-slot="${idx}"]`));
+        await makeSub(ctl().session.state.sides[ctl().userSide].slots.indexOf(slot));
       }
       await click('#sheet [data-act="resume"]');
     }
@@ -198,9 +206,10 @@ describe('pausing and the change-your-plan sheet', () => {
     expect(sheetOpen()).toBe(true);
     expect(q('#sheet').textContent).toContain('Change your plan');
     expect(all('#sheet [data-style]')).toHaveLength(5);
-    expect(q('#sheet').textContent).toContain('Most tired');
-    expect(all('#sheet .pl')).toHaveLength(11);
-    expect(all('#sheet .bn')).toHaveLength(7);
+    expect(all('#sheet .mdot')).toHaveLength(11);
+    expect(q('#sheet').textContent).toContain('Starting XI');
+    expect(q('#sheet').textContent).toContain('Bench');
+    expect(all('#sheet tbody tr')).toHaveLength(18);
     expect(q('#sheet').textContent).toContain('subs used 0/3');
     await advance(MINUTE_MS * 10);
     expect(ctl().session.state.minute).toBe(minute);
@@ -216,38 +225,139 @@ describe('pausing and the change-your-plan sheet', () => {
     expect(q('#sheet [data-style="park-the-bus"]').classList.contains('on')).toBe(true);
   });
 
-  it('makes a substitution by dragging a bench player on, and counts it', async () => {
+  it('shows the team as dots on a small pitch and as a table, in the same order, with the slot each player fills', async () => {
+    await paused();
+    const rows = all('#sheet table.mt')[0]!.querySelectorAll('tbody tr');
+    expect(rows).toHaveLength(11);
+    const side = sideNow();
+    expect([...rows].map((r) => (r as HTMLElement).dataset.pickSlot)).toEqual(side.slots.map((_, i) => String(i)));
+    expect(all('#sheet .mdot').map((d) => d.dataset.pickSlot)).toEqual(side.slots.map((_, i) => String(i)));
+    expect(q('#sheet table.mt thead').textContent).toContain('Slot');
+    expect(rows[0]!.textContent).toContain('GK');
+  });
+
+  it('picks a player by tapping his dot or his row, and tapping again puts him back', async () => {
+    await paused();
+    await tapSlot(7);
+    expect(ctl().selectedSlot).toBe(7);
+    expect(q('#sheet .mdot.sel').dataset.pickSlot).toBe('7');
+    expect(q('#sheet tr.sel').dataset.pickSlot).toBe('7');
+    expect(q('#picked').textContent).toContain('tired');
+    expect(q('#sheet').textContent).toContain('Who comes on for');
+    await tapSlot(7);
+    expect(ctl().selectedSlot).toBeNull();
+    expect(q('#picked')).toBeNull();
+    // The table row works the same as the dot.
+    q('#sheet tr[data-pick-slot="4"]').click();
+    await flush();
+    expect(ctl().selectedSlot).toBe(4);
+  });
+
+  it('lists who could come on with the rating each would have in his place, best first', async () => {
+    await paused();
+    await tapSlot(7);
+    const table = all('#sheet table.mt')[0]!;
+    expect(table.querySelector('thead')!.textContent).toContain('In slot');
+    const rows = [...table.querySelectorAll<HTMLElement>('tbody tr')];
+    expect(rows).toHaveLength(7);
+    const ratings = rows.filter((r) => r.dataset.pickBench).map((r) => Number(r.children[2]!.textContent));
+    expect([...ratings].sort((a, b) => b - a)).toEqual(ratings);
+    expect(rows[0]!.textContent).toContain('BEST');
+    expect(rows[0]!.children[3]!.textContent).toMatch(/^[+-]?\d+$/);
+  });
+
+  it('stages a substitution first, showing the change and the team rating, and does not use a sub yet', async () => {
+    await paused();
+    const side = sideNow();
+    const off = side.slots[7]!;
+    const on = firstFitBench();
+    await tapSlot(7);
+    await click(`#sheet [data-pick-bench="${on}"]`);
+    expect(q('#staged')).not.toBeNull();
+    expect(q('#staged').textContent).toContain('Team rating');
+    expect(q('#sheet [data-act="sub-confirm"]')).not.toBeNull();
+    expect(q('#sheet tr.in')).not.toBeNull();
+    expect(side.slots[7]).toBe(off);
+    expect(side.subsUsed).toBe(0);
+    expect(q('#sheet').textContent).toContain('subs used 0/3');
+  });
+
+  it('makes the substitution when it is confirmed, and counts it', async () => {
     await paused();
     const state = ctl().session.state;
     const side = state.sides[ctl().userSide];
     const off = side.slots[7]!;
-    const on = side.bench[0]!;
-    await drag(q('#sheet .bn[data-bn="0"]'), q('#sheet .pl[data-slot="7"]'));
+    const on = firstFitBench();
+    await makeSub(7, on);
     expect(side.slots[7]).toBe(on);
     expect(side.subsUsed).toBe(1);
     expect(q('#sheet').textContent).toContain('subs used 1/3');
     expect(side.bench).not.toContain(on);
     expect(state.events.at(-1)).toMatchObject({ kind: 'sub', offId: off, onId: on });
-    expect(all('#sheet .bn').map((b) => b.getAttribute('data-bn'))).not.toContain(null);
+    expect(ctl().selectedSlot).toBeNull();
+    expect(ctl().pending).toBeNull();
+    expect(q('#sheet [data-act="resume"]')).not.toBeNull();
+  });
+
+  it('takes the staged substitution back on Undo', async () => {
+    await paused();
+    const side = sideNow();
+    const off = side.slots[7]!;
+    await tapSlot(7);
+    await click(`#sheet [data-pick-bench="${firstFitBench()}"]`);
+    await click('#sheet [data-act="sub-undo"]');
+    expect(ctl().pending).toBeNull();
+    expect(q('#staged')).toBeNull();
+    expect(ctl().selectedSlot).toBe(7);
+    expect(side.slots[7]).toBe(off);
+    expect(side.subsUsed).toBe(0);
+  });
+
+  it('lets the pick be cancelled', async () => {
+    await paused();
+    await tapSlot(7);
+    await click('#sheet [data-act="sub-cancel"]');
+    expect(ctl().selectedSlot).toBeNull();
+    expect(q('#sheet [data-act="resume"]')).not.toBeNull();
+  });
+
+  it('tells the user to pick a player first when a bench player is tapped on his own', async () => {
+    await paused();
+    await click(`#sheet [data-pick-bench="${firstFitBench()}"]`);
+    expect(q('#plan-notice').textContent).toMatch(/take off first/);
+    expect(ctl().pending).toBeNull();
   });
 
   it('allows three substitutions and says no to a fourth', async () => {
     await paused();
-    for (let i = 0; i < MATCH.maxSubs; i++) await drag(q('#sheet .bn[data-bn="0"]'), q(`#sheet .pl[data-slot="${3 + i}"]`));
-    expect(ctl().session.state.sides[ctl().userSide].subsUsed).toBe(3);
-    await drag(q('#sheet .bn[data-bn="0"]'), q('#sheet .pl[data-slot="9"]'));
-    expect(ctl().session.state.sides[ctl().userSide].subsUsed).toBe(3);
+    for (let i = 0; i < MATCH.maxSubs; i++) await makeSub(3 + i);
+    expect(sideNow().subsUsed).toBe(3);
+    await tapSlot(9);
+    await click(`#sheet [data-pick-bench="${firstFitBench()}"]`);
+    expect(sideNow().subsUsed).toBe(3);
     expect(q('#plan-notice').textContent).toMatch(/No substitutions left/);
+    expect(ctl().pending).toBeNull();
   });
 
-  it('swaps two players on the pitch for free', async () => {
+  it('cannot bring on an injured bench player', async () => {
     await paused();
-    const side = ctl().session.state.sides[ctl().userSide];
+    const hurt = sideNow().bench[0]!;
+    game().world.players[hurt]!.injury = { weeks: 3, kind: 'Knee' };
+    await tapSlot(7);
+    expect(q(`#sheet [data-pick-bench="${hurt}"]`)).toBeNull();
+    expect(q('#sheet tr.hurt')).not.toBeNull();
+  });
+
+  it('swaps two players on the pitch for free by tapping both', async () => {
+    await paused();
+    const side = sideNow();
     const [a, b] = [side.slots[2], side.slots[9]];
-    await drag(q('#sheet .pl[data-slot="2"]'), q('#sheet .pl[data-slot="9"]'));
+    await tapSlot(2);
+    await tapSlot(9);
     expect(side.slots[2]).toBe(b);
     expect(side.slots[9]).toBe(a);
     expect(side.subsUsed).toBe(0);
+    expect(ctl().selectedSlot).toBeNull();
   });
 
   it('resumes play from the sheet, and always reopens scrolled to the top', async () => {
@@ -315,7 +425,12 @@ describe('injuries', () => {
     await advance(MINUTE_MS * 5);
     expect(ctl().session.state.minute).toBe(minute);
     const idx = side.slots.indexOf(side.forcedSub);
-    await drag(q('#sheet .bn[data-bn="0"]'), q(`#sheet .pl[data-slot="${idx}"]`));
+    expect(ctl().selectedSlot).toBe(idx);
+    expect(q('#sheet tr.sel').dataset.pickSlot).toBe(String(idx));
+    await tapSlot((idx + 1) % 11);
+    expect(q('#plan-notice').textContent).toMatch(/Replace the injured player first/);
+    expect(ctl().selectedSlot).toBe(idx);
+    await makeSub(idx);
     expect(side.forcedSub).toBeNull();
     expect(q('#forced-notice')).toBeNull();
     expect(q<HTMLButtonElement>('#sheet [data-act="resume"]').disabled).toBe(false);

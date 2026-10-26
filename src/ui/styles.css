@@ -288,3 +288,28 @@ tr.champ td{background:var(--gold);color:#1a1300;border-bottom-color:#b8860b}tr.
 .rv-div{margin-top:12px;padding-top:8px;border-top:2px solid var(--line)}.rv-h{font-size:9px;color:var(--cyan);margin-bottom:4px}
 .rv-l{font-size:8px;line-height:1.6;padding:3px 4px}.rv-l.me{background:#3a1a22;color:var(--gold)}
 .arrows{top:-34px}
+
+/* Substitutions by tapping */
+.mpitch{position:relative;height:140px;border:3px solid var(--line);background:repeating-linear-gradient(180deg,#2c6b2d 0 17.5px,#276126 17.5px 35px);overflow:hidden}
+.mpitch .ln{position:absolute;border:2px solid rgba(255,255,255,.55)}
+.mdot{position:absolute;transform:translate(-50%,-50%);width:16px;height:16px;border-radius:50%;border:2px solid #000;padding:0;cursor:pointer;color:inherit}
+.mdot::before{content:"";position:absolute;inset:-14px}
+.mdot.GK,.mdot-key.GK{background:#43b84a}.mdot.DEF,.mdot-key.DEF{background:#29b6f6}.mdot.MID,.mdot-key.MID{background:#ffc933}.mdot.ATT,.mdot-key.ATT{background:#ff6b5e}
+.mdot.tired{box-shadow:0 0 0 2px var(--amber)}
+.mdot.sel{width:24px;height:24px;border-color:var(--gold);box-shadow:0 0 0 3px #ffc93355,0 0 14px 4px #ffc933aa;z-index:2}
+.mdot.inc{width:22px;height:22px;border-color:var(--green);box-shadow:0 0 0 3px #43b84a55,0 0 12px 4px #43b84aaa;z-index:2}
+.mdot-key{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;border:1px solid #000;vertical-align:-1px}
+table.mt td,table.mt th{padding-block:6px}
+table.mt tbody tr{cursor:pointer}
+table.mt tr.faded td{opacity:.55}
+table.mt tr.sel td{background:#4a3d0a;color:var(--gold);opacity:1}
+table.mt tr.in td{background:#123a1b;color:#7cf08a}
+table.mt tr.best td{background:#26340f}
+table.mt tr.off td,table.mt tr.hurt td{opacity:.45;cursor:not-allowed}
+table.mt td.wht{color:#fff}.amb{color:var(--amber)}
+.picked,.staged{border:3px solid var(--gold);padding:10px 12px;margin-top:14px;background:#2a2410;line-height:1.7}
+.staged{border-color:var(--green);background:#0f2a17}
+.planbar{margin-top:18px}
+table.mt .pill{font-size:6px;padding:2px 4px;margin-left:4px;vertical-align:1px}
+table.mt td,table.mt th{padding-inline:4px}
+.planbar{gap:8px}.planbar .btn{width:auto;flex:1 1 0;min-width:0;padding:13px 6px;font-size:10px}

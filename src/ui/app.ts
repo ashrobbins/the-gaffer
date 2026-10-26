@@ -601,6 +601,15 @@ export class App {
       case 'plan':
         m.openPlan();
         return true;
+      case 'sub-confirm':
+        m.confirmSub();
+        return true;
+      case 'sub-undo':
+        m.undoSub();
+        return true;
+      case 'sub-cancel':
+        m.cancelPick();
+        return true;
       case 'skip-shootout':
         m.skipShootout();
         return true;
@@ -619,6 +628,16 @@ export class App {
       return true;
     }
     if (m.planOpen) {
+      const pickSlot = target.closest<HTMLElement>('[data-pick-slot]');
+      if (pickSlot) {
+        m.pickSlot(Number(pickSlot.dataset.pickSlot));
+        return true;
+      }
+      const pickBench = target.closest<HTMLElement>('[data-pick-bench]');
+      if (pickBench) {
+        m.pickBench(pickBench.dataset.pickBench as string);
+        return true;
+      }
       if (target.closest('[data-close]')) {
         m.closePlan();
         return true;

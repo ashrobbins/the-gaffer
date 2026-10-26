@@ -1,3 +1,4 @@
+import { MATCH } from '../engine/config';
 import { aiManageSide, changeFormation, makeSubstitution, pendingForcedSub, setStyle as setLiveStyle, setTeamSheet, startSecondHalf, stepMinute, swapSlots } from '../engine/match';
 import { setFormation, setStyle, swapPositions, swapWithBench, toTeamSheet } from '../engine/lineup';
 import type { FormationId, PlayStyle, Side } from '../engine/matchTypes';
@@ -64,6 +65,9 @@ export class MatchController implements MatchView {
   report: MatchReport | null = null;
 
   speed: MatchSpeed = savedSpeed();
+  /** The position the user has tapped in the plan sheet, and a substitution staged but not yet confirmed. */
+  selectedSlot: number | null = null;
+  pending: { slot: number; benchId: string } | null = null;
   shootout: ShootoutState | null = null;
 
   private timer: ReturnType<typeof setInterval> | null = null;
@@ -293,6 +297,8 @@ export class MatchController implements MatchView {
     if (state.phase === 'half-time') startSecondHalf(state);
     this.planOpen = false;
     this.notice = null;
+    this.selectedSlot = null;
+    this.pending = null;
     this.paused = false;
     this.startTimer();
     this.hooks.render();
@@ -301,12 +307,94 @@ export class MatchController implements MatchView {
   openPlan(): void {
     this.planOpen = true;
     this.planJustOpened = true;
+    this.pending = null;
+    this.selectedSlot = this.forcedSlot();
     this.hooks.render();
   }
 
   closePlan(): void {
     this.planOpen = false;
     this.notice = null;
+    this.selectedSlot = null;
+    this.pending = null;
+    this.hooks.render();
+  }
+
+  /** The position of the injured player who must be replaced, or null. */
+  private forcedSlot(): number | null {
+    const state = this.session.state;
+    if (pendingForcedSub(state) !== this.userSide) return null;
+    const side = state.sides[this.userSide];
+    const slot = side.slots.indexOf(side.forcedSub);
+    return slot === -1 ? null : slot;
+  }
+
+  // --- Substitutions by tapping: pick a position, pick who comes on, confirm ------------------------------------
+
+  /** A tap on a dot on the mini pitch or a row of the Starting XI. Picks the player, or swaps him with the one already picked. */
+  pickSlot(slot: number): void {
+    if (!this.planOpen) return;
+    this.notice = null;
+    const forced = this.forcedSlot();
+    this.pending = null;
+    if (forced !== null) {
+      this.selectedSlot = forced;
+      if (slot !== forced) this.notice = 'Replace the injured player first.';
+    } else if (this.selectedSlot === null) {
+      this.selectedSlot = slot;
+    } else if (this.selectedSlot === slot) {
+      this.selectedSlot = null;
+    } else {
+      swapSlots(this.session.state, this.userSide, this.selectedSlot, slot);
+      this.selectedSlot = null;
+    }
+    this.hooks.render();
+  }
+
+  /** A tap on a bench player: stage the substitution so the user can see what it does before confirming. */
+  pickBench(playerId: string): void {
+    if (!this.planOpen) return;
+    const { game, session } = this;
+    const side = session.state.sides[this.userSide];
+    this.notice = null;
+    if (this.selectedSlot === null) {
+      this.notice = 'Tap the player you want to take off first.';
+    } else if (game.world.players[playerId]?.injury) {
+      this.notice = 'He is injured.';
+    } else if (side.subsUsed >= MATCH.maxSubs && this.forcedSlot() === null) {
+      this.notice = 'No substitutions left.';
+    } else {
+      this.pending = { slot: this.selectedSlot, benchId: playerId };
+    }
+    this.hooks.render();
+  }
+
+  confirmSub(): void {
+    const pending = this.pending;
+    if (!pending) return;
+    const { game, session } = this;
+    const side = session.state.sides[this.userSide];
+    const offId = side.slots[pending.slot];
+    this.pending = null;
+    this.selectedSlot = null;
+    this.notice = null;
+    try {
+      if (offId) makeSubstitution(game.world, session.state, this.userSide, offId, pending.benchId);
+    } catch (e) {
+      this.notice = (e as Error).message;
+    }
+    this.hooks.render();
+  }
+
+  undoSub(): void {
+    this.pending = null;
+    this.hooks.render();
+  }
+
+  cancelPick(): void {
+    if (this.forcedSlot() !== null) return;
+    this.selectedSlot = null;
+    this.pending = null;
     this.hooks.render();
   }
 
